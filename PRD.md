@@ -28,17 +28,16 @@ Real estate agents need to market properties effectively, but empty rooms fail t
 
 ### 3.1. Core MVP Features (all tiers)
 - **Project-Based Workflow**: Each listing has its own project space.
-- **Batch Image Processing**: Upload an entire folder, process in bulk.
-- **Room Tagging**: Auto-detect room types with filename/AI suggestions.
+- **Batch Image Processing**: Upload an entire folder, process in bulk. Or after upload, select certain images (or all) and process together with consistent styling (based on preset, prompt, or saved brand interior design style).
 - **Style Palettes**: Use presets (Minimal, Scandi, Bohemian, etc.) or custom prompts for consistency.
 - **AI Staging**: Powered by Gemini 2.5 Flash (Nano Banana), optimized to preserve structure while adding realistic furniture and décor.
-- **Review & Refine**: Before/after slider, approve or regenerate specific images.
+- **Review & Refine**: Before/after slider, approve or regenerate specific images. Listing kanban board for teams to indicate progress on staging. 
 - **Export Options**: MLS-ready sizes, high-res downloads, optional dual export (empty + staged).
 - **MLS Compliance Tools**:
   - Auto watermark toggle (“Virtually Staged”).
   - Compliance mode (furniture only, no structural edits).
   - Dual export of staged + empty photos.
-
+Gr
 ### 3.2. Premium Features (Pro & Business)
 - **Flyer & Social Media Generator**: Drag staged images into brandable templates (flyers, Instagram posts, FB banners).
 - **Team Accounts**: Manage multiple user seats, centralized billing.
