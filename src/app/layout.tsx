@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     siteName: "RoomsThatSell",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/rts-og-image.jpg",
         width: 1200,
         height: 630,
         alt: "RoomsThatSell - Virtual Staging Before and After",
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "RoomsThatSell – Fast, MLS-Compliant Virtual Staging",
     description: "Transform empty rooms in minutes. MLS-compliant virtual staging from $0.29/image. Join 1000+ agents on our waitlist.",
-    images: ["/twitter-image.jpg"],
+    images: ["/rts-twitter-img.jpg"],
     creator: "@roomsthatsell",
   },
   verification: {
