@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://roomsthatsell.com/sitemap.xml
+
+# Allow all search engines to crawl the site
+# Block access to admin or sensitive areas (when they exist)
+# Disallow: /admin/
+# Disallow: /api/
