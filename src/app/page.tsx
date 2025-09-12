@@ -1198,20 +1198,20 @@ export default function Home() {
           </div>
           
           {/* Optimized Bento Grid Layout - Following Best Practices */}
-          <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4" style={{ gridTemplateRows: 'repeat(2, 220px) 250px' }}>
+          <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4 auto-rows-auto">
             
             {/* PRIMARY: MLS Compliance - Largest Hero Feature (Emphasis) */}
-            <div className="md:col-span-4 lg:col-span-4 md:row-span-2 bg-white rounded-2xl p-6 md:p-8 shadow-sm hover:shadow-xl transition-all duration-500 border border-gray-100 group relative overflow-hidden cursor-pointer hover:scale-[1.02] hover:-translate-y-1">
+            <div className="md:col-span-4 lg:col-span-4 bg-white rounded-2xl p-6 md:p-8 shadow-sm hover:shadow-xl transition-all duration-500 border border-gray-100 group relative overflow-hidden cursor-pointer hover:scale-[1.02] hover:-translate-y-1">
               {/* Floating icon for visual balance */}
-              <div className="absolute top-4 right-4 md:top-6 md:right-6 opacity-10 group-hover:opacity-30 transition-all duration-500 group-hover:rotate-12 group-hover:scale-110">
+              <div className="absolute top-4 right-4 md:top-6 md:right-6 opacity-10 group-hover:opacity-30 transition-all duration-500 group-hover:scale-105">
                 <div className="w-20 h-20 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "var(--brand-success)" }}>
-                  <Shield className="w-10 h-10 text-white group-hover:animate-pulse" />
+                  <Shield className="w-10 h-10 text-white transition-all duration-300" />
                 </div>
               </div>
               
               <div className="relative z-10 h-full flex flex-col">
                 <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold mb-4 w-fit group-hover:bg-green-200 group-hover:scale-105 transition-all duration-300">
-                  <CheckCircle className="w-3 h-3 group-hover:animate-spin" />
+                  <CheckCircle className="w-3 h-3 transition-all duration-300" />
                   100% MLS Compliant
                 </div>
                 
@@ -1226,20 +1226,20 @@ export default function Home() {
                 
                 {/* Simplified feature grid for better spacing */}
                 <div className="grid grid-cols-2 gap-3 mt-auto">
-                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100">
-                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100 group-hover:bg-green-100 group-hover:scale-105 transition-all duration-300 cursor-pointer">
+                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 transition-all duration-300" />
                     <span className="text-xs font-medium text-gray-800">Furniture only</span>
                   </div>
-                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100">
-                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100 group-hover:bg-green-100 group-hover:scale-105 transition-all duration-300 cursor-pointer">
+                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 transition-all duration-300" />
                     <span className="text-xs font-medium text-gray-800">Auto watermark</span>
                   </div>
-                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100">
-                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100 group-hover:bg-green-100 group-hover:scale-105 transition-all duration-300 cursor-pointer">
+                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 transition-all duration-300" />
                     <span className="text-xs font-medium text-gray-800">Dual exports</span>
                   </div>
-                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100">
-                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100 group-hover:bg-green-100 group-hover:scale-105 transition-all duration-300 cursor-pointer">
+                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 transition-all duration-300" />
                     <span className="text-xs font-medium text-gray-800">Structure preserved</span>
                   </div>
                 </div>
@@ -1247,10 +1247,10 @@ export default function Home() {
             </div>
 
             {/* SECONDARY: Style Palettes - Medium Feature (Taller) */}
-            <div className="md:col-span-2 lg:col-span-2 md:row-span-2 bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-500 border border-gray-100 group relative overflow-hidden cursor-pointer hover:scale-[1.02] hover:-translate-y-1">
+            <div className="md:col-span-2 lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-500 border border-gray-100 group relative overflow-hidden cursor-pointer hover:scale-[1.02] hover:-translate-y-1">
               <div className="h-full flex flex-col">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-12 transition-all duration-300" style={{ background: `linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-hover) 100%)` }}>
-                  <Palette className="w-6 h-6 text-white group-hover:animate-bounce" />
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-105 transition-all duration-300" style={{ background: `linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-hover) 100%)` }}>
+                  <Palette className="w-6 h-6 text-white transition-all duration-300" />
                 </div>
                 
                 <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-blue-900 transition-colors duration-300">Style Palettes</h3>
@@ -1289,8 +1289,8 @@ export default function Home() {
                   <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-blue-900 transition-colors duration-300">Review & Refine</h3>
                   <p className="text-gray-600 text-sm">Before/after slider, approve or regenerate images. Perfect control over every result.</p>
                 </div>
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center ml-4 group-hover:scale-110 group-hover:rotate-12 transition-all duration-300" style={{ backgroundColor: "var(--brand-primary)" }}>
-                  <Download className="w-6 h-6 text-white group-hover:animate-bounce" />
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center ml-4 group-hover:scale-105 transition-all duration-300" style={{ backgroundColor: "var(--brand-primary)" }}>
+                  <Download className="w-6 h-6 text-white transition-all duration-300" />
                 </div>
               </div>
               
@@ -1298,7 +1298,7 @@ export default function Home() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500 group-hover:text-gray-700 transition-colors">Approval Status</span>
-                  <span className="font-semibold text-green-600 group-hover:scale-110 transition-transform duration-300">12/15 Approved</span>
+                  <span className="font-semibold text-green-600 group-hover:scale-105 transition-transform duration-300">12/15 Approved</span>
                 </div>
                 <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden group-hover:h-3 transition-all duration-300">
                   <div 
@@ -1316,8 +1316,8 @@ export default function Home() {
             {/* TERTIARY: Batch Upload - Square Feature */}
             <div className="md:col-span-2 lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-500 border border-gray-100 group relative overflow-hidden cursor-pointer hover:scale-[1.02] hover:-translate-y-1">
               <div className="h-full flex flex-col">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:-rotate-12 transition-all duration-300" style={{ backgroundColor: "var(--brand-primary)" }}>
-                  <Upload className="w-6 h-6 text-white group-hover:animate-bounce" />
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-105 transition-all duration-300" style={{ backgroundColor: "var(--brand-primary)" }}>
+                  <Upload className="w-6 h-6 text-white transition-all duration-300" />
                 </div>
                 
                 <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-blue-900 transition-colors duration-300">Batch Upload</h3>
@@ -1329,7 +1329,7 @@ export default function Home() {
                 
                 {/* Interactive progress visualization */}
                 <div className="space-y-2 mt-auto">
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <div className="flex items-center gap-2 text-xs text-gray-500 group-hover:text-gray-700 transition-colors">
                     <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden group-hover:h-3 transition-all duration-300">
                       <div 
                         className="h-full rounded-full transition-all duration-1000 group-hover:animate-pulse" 
@@ -1339,9 +1339,9 @@ export default function Home() {
                         }}
                       ></div>
                     </div>
-                    <span className="group-hover:scale-110 transition-transform duration-300">15 photos</span>
+                    <span className="group-hover:scale-105 transition-transform duration-300">15 photos</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <div className="flex items-center gap-2 text-xs text-gray-500 group-hover:text-gray-700 transition-colors">
                     <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden group-hover:h-3 transition-all duration-300">
                       <div 
                         className="h-full rounded-full transition-all duration-1000 group-hover:animate-pulse" 
@@ -1352,7 +1352,7 @@ export default function Home() {
                         }}
                       ></div>
                     </div>
-                    <span className="group-hover:scale-110 transition-transform duration-300">Processing</span>
+                    <span className="group-hover:scale-105 transition-transform duration-300">Processing</span>
                   </div>
                 </div>
               </div>
@@ -1361,8 +1361,8 @@ export default function Home() {
             {/* TERTIARY: Team Accounts - Square Feature */}
             <div className="md:col-span-2 lg:col-span-1 bg-white rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all duration-500 border border-gray-100 group relative overflow-hidden cursor-pointer hover:scale-[1.02] hover:-translate-y-1">
               <div className="h-full flex flex-col">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 group-hover:rotate-12 transition-all duration-300" style={{ background: `linear-gradient(135deg, var(--brand-primary-hover) 0%, var(--brand-primary) 100%)` }}>
-                  <Users className="w-5 h-5 text-white group-hover:animate-bounce" />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 group-hover:scale-105 transition-all duration-300" style={{ background: `linear-gradient(135deg, var(--brand-primary-hover) 0%, var(--brand-primary) 100%)` }}>
+                  <Users className="w-5 h-5 text-white transition-all duration-300" />
                 </div>
                 
                 <h3 className="text-base font-bold text-gray-900 mb-1 group-hover:text-blue-900 transition-colors duration-300">Team Accounts</h3>
