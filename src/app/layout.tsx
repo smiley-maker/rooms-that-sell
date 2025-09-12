@@ -59,7 +59,7 @@ export const metadata: Metadata = {
     creator: "@roomsthatsell",
   },
   verification: {
-    google: "your-google-verification-code",
+    google: "QblvzaLbsJOAk1XypW-JrKxaPYvZxBCPLFkpSnBXciw",
   },
   category: "Real Estate Technology",
 };
