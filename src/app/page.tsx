@@ -579,7 +579,10 @@ export default function Home() {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: newsletterEmail }),
+        body: JSON.stringify({ 
+          email: newsletterEmail,
+          source: "newsletter"
+        }),
       });
       if (!res.ok) throw new Error("Failed to join waitlist");
       setNewsletterStatus("success");
@@ -2523,19 +2526,9 @@ export default function Home() {
             <div className="md:col-span-2">
               <h3 className="text-2xl font-bold mb-4">RoomsThatSell</h3>
               <p className="text-white/70 mb-6 leading-relaxed">
-                The fastest, most affordable, and MLS-compliant virtual staging solution for real estate agents and brokerages. 
+                The fastest, most affordable virtual staging solution for real estate agents and brokerages. 
                 Transform empty rooms into stunning staged photos in minutes.
               </p>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-green-400" />
-                  <span className="text-sm">MLS Compliant</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Star className="w-5 h-5 text-yellow-400" />
-                  <span className="text-sm">4.8/5 Rating</span>
-                </div>
-              </div>
             </div>
 
             {/* Quick links */}
@@ -2549,13 +2542,11 @@ export default function Home() {
               </ul>
             </div>
 
-            {/* Support */}
+            {/* Legal */}
             <div>
-              <h4 className="font-semibold mb-4">Support</h4>
+              <h4 className="font-semibold mb-4">Legal</h4>
               <ul className="space-y-3 text-white/70">
-                <li><a href="mailto:support@roomsthatsell.com" className="hover:text-white transition-colors">Contact Support</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">MLS Guidelines</a></li>
+                <li><a href="/terms" className="hover:text-white transition-colors">Terms of Service</a></li>
                 <li><a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a></li>
               </ul>
             </div>
@@ -2620,8 +2611,6 @@ export default function Home() {
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-6 text-sm text-white/70">
                 <p>© {new Date().getFullYear()} RoomsThatSell. All rights reserved.</p>
-                <a href="/terms" className="hover:text-white transition-colors">Terms of Service</a>
-                <a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a>
               </div>
               
               {/* Final CTA */}
