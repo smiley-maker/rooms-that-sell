@@ -3,6 +3,82 @@ import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { CheckCircle, Star, Users, Clock, Shield, Camera, Download, Palette, Upload, Home as HomeIcon, Badge } from "lucide-react";
 import { ProblemVsSolution, CoreFeatures3Up } from "@/components";
+import { motion } from "framer-motion";
+
+// Reusable animation variants
+const fadeInUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0 }
+};
+
+// Animation variants (currently unused but kept for future use)
+// const fadeInLeft = {
+//   hidden: { opacity: 0, x: -30 },
+//   visible: { opacity: 1, x: 0 }
+// };
+
+// const fadeInRight = {
+//   hidden: { opacity: 0, x: 30 },
+//   visible: { opacity: 1, x: 0 }
+// };
+
+const fadeInScale = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: { opacity: 1, scale: 1 }
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+// Reusable animation components
+const ScrollReveal = ({ children, variant = fadeInUp, delay = 0, className = "" }: {
+  children: React.ReactNode;
+  variant?: typeof fadeInUp;
+  delay?: number;
+  className?: string;
+}) => (
+  <motion.div
+    className={className}
+    initial="hidden"
+    whileInView="visible"
+    viewport={{ once: true, margin: "-100px" }}
+    variants={variant}
+    transition={{ duration: 1.0, delay, ease: "easeOut" }}
+  >
+    {children}
+  </motion.div>
+);
+
+const StaggerReveal = ({ children, className = "", staggerDelay = 0.2 }: {
+  children: React.ReactNode;
+  className?: string;
+  staggerDelay?: number;
+}) => (
+  <motion.div
+    className={className}
+    initial="hidden"
+    whileInView="visible"
+    viewport={{ once: true, margin: "-100px" }}
+    variants={{
+      ...staggerContainer,
+      visible: {
+        ...staggerContainer.visible,
+        transition: {
+          staggerChildren: staggerDelay
+        }
+      }
+    }}
+  >
+    {children}
+  </motion.div>
+);
 
 // Colors now come from CSS variables in globals.css
 // Access via var(--brand-primary), var(--brand-accent), etc.
@@ -92,7 +168,8 @@ function BeforeAfterSlider({
   beforeAlt = "Empty room before staging",
   afterAlt = "Staged room after virtual staging",
   beforeLabel = "Before",
-  afterLabel = "After"
+  afterLabel = "After",
+  priority = false
 }: {
   beforeImage?: string;
   afterImage?: string;
@@ -100,9 +177,68 @@ function BeforeAfterSlider({
   afterAlt?: string;
   beforeLabel?: string;
   afterLabel?: string;
+  priority?: boolean;
 }) {
   const [position, setPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
+  const [lastInteractionTime, setLastInteractionTime] = useState(Date.now());
+
+  // Preload images for better performance
+  useEffect(() => {
+    const preloadImages = async () => {
+      const imagePromises = [beforeImage, afterImage].map(src => {
+        return new Promise<void>((resolve, reject) => {
+          const img = new window.Image();
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+          img.src = src;
+        });
+      });
+      
+      try {
+        await Promise.all(imagePromises);
+        setImagesLoaded(true);
+      } catch (error) {
+        console.warn('Failed to preload some images:', error);
+        setImagesLoaded(true); // Still show images even if preload fails
+      }
+    };
+
+    preloadImages();
+  }, [beforeImage, afterImage]);
+
+  // Smooth easing back to center when not hovering
+  useEffect(() => {
+    if (isHovering || isDragging) return;
+
+    const timeSinceLastInteraction = Date.now() - lastInteractionTime;
+    // Only start easing after 1 second of no interaction
+    if (timeSinceLastInteraction < 1000) return;
+
+    const startPosition = position;
+    const targetPosition = 50;
+    const startTime = Date.now();
+    const duration = 800; // 800ms easing animation
+
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = easeOutCubic(progress);
+      
+      const currentPosition = startPosition + (targetPosition - startPosition) * easedProgress;
+      setPosition(currentPosition);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [isHovering, isDragging, lastInteractionTime, position]);
 
   const handleMouseDown = () => setIsDragging(true);
   const handleMouseUp = () => setIsDragging(false);
@@ -113,6 +249,7 @@ function BeforeAfterSlider({
     const x = e.clientX - rect.left;
     const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
     setPosition(percentage);
+    setLastInteractionTime(Date.now());
   };
 
   // Mobile: Keep original touch behavior for dragging
@@ -123,20 +260,38 @@ function BeforeAfterSlider({
     const x = touch.clientX - rect.left;
     const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
     setPosition(percentage);
+    setLastInteractionTime(Date.now());
+  };
+
+  const handleMouseEnter = () => {
+    setIsHovering(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovering(false);
+    handleMouseUp();
+    setLastInteractionTime(Date.now());
   };
 
   return (
     <div className="relative w-full">
+      {/* Loading skeleton */}
+      {!imagesLoaded && (
+        <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-gray-200 animate-pulse">
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200"></div>
+          <div className="absolute top-4 left-4 bg-gray-400 px-3 py-1 rounded-full text-sm font-medium w-16 h-6"></div>
+          <div className="absolute top-4 right-4 bg-gray-400 px-3 py-1 rounded-full text-sm font-medium w-12 h-6"></div>
+        </div>
+      )}
+      
       {/* Before/After Images */}
       <div 
-        className="relative aspect-[4/3] overflow-hidden rounded-xl cursor-col-resize select-none"
+        className={`relative aspect-[4/3] overflow-hidden rounded-xl cursor-col-resize select-none transition-opacity duration-300 ${imagesLoaded ? 'opacity-100' : 'opacity-0 absolute'}`}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseMove={handleMouseMove}
-        onMouseLeave={() => {
-          handleMouseUp();
-          setPosition(50); // Reset to center when mouse leaves on desktop
-        }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         onTouchStart={handleMouseDown}
         onTouchEnd={handleMouseUp}
         onTouchMove={handleTouchMove}
@@ -149,6 +304,11 @@ function BeforeAfterSlider({
             alt={beforeAlt}
             fill
             className="object-cover"
+            priority={priority}
+            loading={priority ? "eager" : "lazy"}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            placeholder="blur"
+            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
           />
           <div className="absolute top-4 left-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm font-medium">
             {beforeLabel}
@@ -165,6 +325,11 @@ function BeforeAfterSlider({
             alt={afterAlt}
             fill
             className="object-cover"
+            priority={priority}
+            loading={priority ? "eager" : "lazy"}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            placeholder="blur"
+            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
           />
           <div className="absolute top-4 right-4 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
             {afterLabel}
@@ -223,33 +388,43 @@ function Navigation() {
     <nav className="px-6 py-4 bg-white/90 backdrop-blur-sm sticky top-0 z-50 border-b border-gray-100">
       <div className="mx-auto max-w-7xl flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">R</span>
-          </div>
-          <span className="font-semibold text-lg">RoomsThatSell</span>
-        </div>
+        <button 
+          onClick={() => scrollToSection('hero')}
+          className="cursor-pointer hover:scale-105 transition-transform"
+        >
+          <Image
+            src="/images/roomsthatselllogo.png"
+            alt="Rooms That Sell"
+            width={150}
+            height={50}
+            className="h-12 w-auto"
+            priority
+          />
+        </button>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
-          <button onClick={() => scrollToSection('about')} className="text-gray-600 hover:text-gray-900 transition-colors">about</button>
-          <button onClick={() => scrollToSection('features')} className="text-gray-600 hover:text-gray-900 transition-colors">features</button>
-          <button onClick={() => scrollToSection('pricing')} className="text-gray-600 hover:text-gray-900 transition-colors">pricing</button>
-          <button onClick={() => scrollToSection('faqs')} className="text-gray-600 hover:text-gray-900 transition-colors">faqs</button>
+          <button onClick={() => scrollToSection('features')} className="text-gray-600 hover:text-gray-900 transition-colors cursor-pointer hover:scale-105">features</button>
+          <button onClick={() => scrollToSection('examples')} className="text-gray-600 hover:text-gray-900 transition-colors cursor-pointer hover:scale-105">examples</button>
+          <button onClick={() => scrollToSection('pricing')} className="text-gray-600 hover:text-gray-900 transition-colors cursor-pointer hover:scale-105">pricing</button>
+          <button onClick={() => scrollToSection('faqs')} className="text-gray-600 hover:text-gray-900 transition-colors cursor-pointer hover:scale-105">faq</button>
         </div>
 
         {/* CTA Button */}
         <div className="flex items-center gap-4">
           <button 
             onClick={() => scrollToSection('waitlist')}
-            className="hidden md:inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium transition-colors"
+            className="hidden md:inline-flex items-center gap-2 text-white px-6 py-3 rounded-full text-sm font-semibold transition-all hover:shadow-lg hover:scale-105 cursor-pointer"
+            style={{ backgroundColor: "var(--brand-primary)" }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
           >
             sign up for waitlist
           </button>
           
           {/* Mobile Menu Button */}
           <button 
-            className="md:hidden p-2"
+            className="md:hidden p-2 cursor-pointer hover:bg-gray-100 rounded-lg transition-colors"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             aria-label="Toggle menu"
           >
@@ -265,13 +440,16 @@ function Navigation() {
       {isMenuOpen && (
         <div className="md:hidden mt-4 pb-4 border-t border-gray-100">
           <div className="flex flex-col gap-4 pt-4">
-            <button onClick={() => scrollToSection('about')} className="text-gray-600 hover:text-gray-900 transition-colors text-left">about</button>
-            <button onClick={() => scrollToSection('features')} className="text-gray-600 hover:text-gray-900 transition-colors text-left">features</button>
-            <button onClick={() => scrollToSection('pricing')} className="text-gray-600 hover:text-gray-900 transition-colors text-left">pricing</button>
-            <button onClick={() => scrollToSection('faqs')} className="text-gray-600 hover:text-gray-900 transition-colors text-left">faqs</button>
+            <button onClick={() => scrollToSection('features')} className="text-gray-600 hover:text-gray-900 transition-colors text-left cursor-pointer hover:scale-105">features</button>
+            <button onClick={() => scrollToSection('examples')} className="text-gray-600 hover:text-gray-900 transition-colors text-left cursor-pointer hover:scale-105">examples</button>
+            <button onClick={() => scrollToSection('pricing')} className="text-gray-600 hover:text-gray-900 transition-colors text-left cursor-pointer hover:scale-105">pricing</button>
+            <button onClick={() => scrollToSection('faqs')} className="text-gray-600 hover:text-gray-900 transition-colors text-left cursor-pointer hover:scale-105">faq</button>
             <button 
               onClick={() => scrollToSection('waitlist')}
-              className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium transition-colors w-fit"
+              className="inline-flex items-center gap-2 text-white px-6 py-3 rounded-full text-sm font-semibold transition-all hover:shadow-lg hover:scale-105 cursor-pointer w-fit"
+              style={{ backgroundColor: "var(--brand-primary)" }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
             >
               sign up for waitlist
             </button>
@@ -402,7 +580,10 @@ export default function Home() {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: newsletterEmail }),
+        body: JSON.stringify({ 
+          email: newsletterEmail,
+          source: "newsletter"
+        }),
       });
       if (!res.ok) throw new Error("Failed to join waitlist");
       setNewsletterStatus("success");
@@ -426,30 +607,94 @@ export default function Home() {
     <main>
       <Navigation />
       {/* Hero */}
-      <section className="min-h-screen flex items-center" style={{ backgroundColor: "var(--bg-section-neutral)" }}>
+      <section id="hero" className="min-h-screen flex items-center" style={{ backgroundColor: "var(--bg-section-neutral)" }}>
         <div className="mx-auto max-w-7xl px-6 py-16 grid lg:grid-cols-2 gap-16 items-center">
           {/* Left Column - Text Content */}
-          <div className="space-y-8">
-            <h1 className="text-5xl lg:text-6xl font-bold leading-tight text-gray-900">
+          <motion.div 
+            className="space-y-8"
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+          >
+            <motion.h1 
+              className="text-5xl lg:text-6xl font-bold leading-tight text-gray-900"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1.0, delay: 0.3, ease: "easeOut" }}
+            >
               Virtual Staging That{" "}
-              <span className="italic">Sells Homes Faster</span>
-            </h1>
+              <motion.span 
+                className="italic"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.8, delay: 0.8, ease: "easeOut" }}
+              >
+                Sells Homes Faster
+              </motion.span>
+            </motion.h1>
             
-            <p className="text-xl text-gray-600 leading-relaxed max-w-lg">
+            <motion.p 
+              className="text-xl text-gray-600 leading-relaxed max-w-lg"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
+            >
               Stop spending <strong>$500+ per listing</strong> on physical staging. 
               Transform empty rooms into stunning staged photos in minutes for just{" "}
-              <strong className="text-blue-600">$0.29 each</strong>.
-            </p>
+              <motion.strong 
+                className="text-blue-600"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6, delay: 1.0, ease: "easeOut" }}
+              >
+                $0.29 each
+              </motion.strong>.
+            </motion.p>
 
             {/* Waitlist Form */}
-            <div id="waitlist" className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 max-w-lg">
-              <h3 className="text-xl font-bold mb-2">Join 1,000+ agents on our waitlist</h3>
-              <p className="text-gray-600 mb-6">
+            <motion.div 
+              id="waitlist" 
+              className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 max-w-lg"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.7, ease: "easeOut" }}
+              whileHover={{ 
+                scale: 1.02,
+                transition: { duration: 0.3 }
+              }}
+            >
+              <motion.h3 
+                className="text-xl font-bold mb-2"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 1.0 }}
+              >
+                Join 1,000+ agents on our waitlist
+              </motion.h3>
+              <motion.p 
+                className="text-gray-600 mb-6"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 1.1 }}
+              >
                 Get early access & <strong>10 free staging credits</strong> when we launch
-              </p>
+              </motion.p>
               
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <input
+              <motion.form 
+                onSubmit={handleSubmit} 
+                className="space-y-4"
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  visible: {
+                    transition: {
+                      staggerChildren: 0.2
+                    }
+                  }
+                }}
+                transition={{ delay: 1.2 }}
+              >
+                <motion.input
                   type="email"
                   required
                   value={email}
@@ -459,8 +704,13 @@ export default function Home() {
                   style={{ '--tw-ring-color': "var(--brand-primary)" } as React.CSSProperties}
                   onFocus={(e) => e.currentTarget.style.boxShadow = `0 0 0 2px var(--brand-primary)40`}
                   onBlur={(e) => e.currentTarget.style.boxShadow = 'none'}
+                  variants={{
+                    hidden: { opacity: 0, y: 20 },
+                    visible: { opacity: 1, y: 0 }
+                  }}
+                  whileFocus={{ scale: 1.02 }}
                 />
-                <input
+                <motion.input
                   type="text"
                   value={listings}
                   onChange={(e) => setListings(e.target.value)}
@@ -469,14 +719,29 @@ export default function Home() {
                   style={{ '--tw-ring-color': "var(--brand-primary)" } as React.CSSProperties}
                   onFocus={(e) => e.currentTarget.style.boxShadow = `0 0 0 2px var(--brand-primary)40`}
                   onBlur={(e) => e.currentTarget.style.boxShadow = 'none'}
+                  variants={{
+                    hidden: { opacity: 0, y: 20 },
+                    visible: { opacity: 1, y: 0 }
+                  }}
+                  whileFocus={{ scale: 1.02 }}
                 />
-                <button
+                <motion.button
                   type="submit"
                   disabled={status === "loading"}
-                  className="w-full text-white font-semibold py-3 px-6 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full text-white font-semibold py-3 px-6 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                   style={{ backgroundColor: "var(--brand-primary)" }}
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--brand-primary-hover)'}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
+                  variants={{
+                    hidden: { opacity: 0, y: 20 },
+                    visible: { opacity: 1, y: 0 }
+                  }}
+                  whileHover={{ 
+                    scale: 1.05,
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                    transition: { duration: 0.2 }
+                  }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   {status === "loading" ? (
                     <>
@@ -486,24 +751,29 @@ export default function Home() {
                   ) : (
                     "get early access →"
                   )}
-                </button>
+                </motion.button>
                 
                 {message && (
-                  <div className={`text-sm p-3 rounded-lg ${
-                    status === "error" 
-                      ? "bg-red-50 text-red-700 border border-red-200" 
-                      : "bg-green-50 text-green-700 border border-green-200"
-                  }`}>
+                  <motion.div 
+                    className={`text-sm p-3 rounded-lg ${
+                      status === "error" 
+                        ? "bg-red-50 text-red-700 border border-red-200" 
+                        : "bg-green-50 text-green-700 border border-green-200"
+                    }`}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
                     {message}
-                  </div>
+                  </motion.div>
                 )}
-              </form>
-            </div>
-          </div>
+              </motion.form>
+            </motion.div>
+          </motion.div>
 
           {/* Right Column - Before/After Images */}
           <div className="flex justify-center lg:justify-end">
-            <BeforeAfterSlider />
+            <BeforeAfterSlider priority={true} />
           </div>
         </div>
       </section>
@@ -515,19 +785,39 @@ export default function Home() {
       <section id="about" className="px-6 py-20" style={{ backgroundColor: "var(--brand-dark)" }}>
         <div className="mx-auto max-w-7xl">
           {/* Section Header */}
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">
-              Proven Results That <span className="italic">Sell Homes</span>
-            </h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+          <ScrollReveal className="text-center mb-16">
+            <motion.h2 
+              className="text-4xl md:text-5xl font-bold mb-6 text-white"
+              variants={fadeInUp}
+            >
+              Proven Results That <motion.span 
+                className="italic"
+                variants={fadeInScale}
+                transition={{ delay: 0.3 }}
+              >
+                Sell Homes
+              </motion.span>
+            </motion.h2>
+            <motion.p 
+              className="text-xl text-gray-300 max-w-3xl mx-auto"
+              variants={fadeInUp}
+              transition={{ delay: 0.1 }}
+            >
               Backed by real data from the National Association of Realtors and industry studies
-            </p>
-          </div>
+            </motion.p>
+          </ScrollReveal>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16">
+          <StaggerReveal className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16" staggerDelay={0.2}>
             {/* Stat 1 - Higher Offers */}
-            <div className="text-center">
+            <motion.div 
+              className="text-center"
+              variants={fadeInUp}
+              whileHover={{ 
+                scale: 1.05,
+                transition: { duration: 0.3 }
+              }}
+            >
               <div className="text-5xl md:text-6xl font-bold mb-4 text-white">
                 Up to <AnimatedCounter end={10} suffix="%" duration={2000} className="inline" />
               </div>
@@ -536,10 +826,17 @@ export default function Home() {
                 Staged homes sell for 1–10% more than unstaged homes according to NAR data.
               </p>
               <div className="text-sm text-gray-400">— NAR Data</div>
-            </div>
+            </motion.div>
 
             {/* Stat 2 - Faster Sales */}
-            <div className="text-center">
+            <motion.div 
+              className="text-center"
+              variants={fadeInUp}
+              whileHover={{ 
+                scale: 1.05,
+                transition: { duration: 0.3 }
+              }}
+            >
               <div className="text-5xl md:text-6xl font-bold mb-4 text-white">
                 <AnimatedCounter end={73} suffix="%" duration={2200} className="inline" /> Faster Sales
               </div>
@@ -547,18 +844,25 @@ export default function Home() {
                 Staged homes spend 73% less time on the market.
               </p>
               <div className="text-sm text-gray-400">— NAR Data</div>
-            </div>
+            </motion.div>
 
             {/* Stat 3 - ROI */}
-            <div className="text-center">
+            <motion.div 
+              className="text-center"
+              variants={fadeInUp}
+              whileHover={{ 
+                scale: 1.05,
+                transition: { duration: 0.3 }
+              }}
+            >
               <div className="text-5xl md:text-6xl font-bold mb-4 text-white">5-6X</div>
               <div className="text-xl font-semibold text-white mb-4">ROI</div>
               <p className="text-gray-300 leading-relaxed mb-4">
                 Every $1 spent on staging can return $5–6 at sale according to industry data.
               </p>
               <div className="text-sm text-gray-400">— Home Staging Institute</div>
-            </div>
-          </div>
+            </motion.div>
+          </StaggerReveal>
 
 
           {/* 
@@ -577,27 +881,51 @@ export default function Home() {
       </section>
 
       {/* Core Features Section */}
-      <CoreFeatures3Up />
+      <div id="features">
+        <CoreFeatures3Up />
+      </div>
 
             {/* Before/After Gallery */}
-            <section className="px-6 py-20" style={{ backgroundColor: "var(--brand-white)" }}>
+            <section id="examples" className="px-6 py-20" style={{ backgroundColor: "var(--brand-white)" }}>
         <div className="mx-auto max-w-7xl">
           {/* Section Header */}
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900">
-              See the <span className="italic" style={{ color: "var(--brand-primary)" }}>Difference</span>
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+          <ScrollReveal className="text-center mb-16">
+            <motion.h2 
+              className="text-4xl md:text-5xl font-bold mb-6 text-gray-900"
+              variants={fadeInUp}
+            >
+              See the <motion.span 
+                className="italic" 
+                style={{ color: "var(--brand-primary)" }}
+                variants={fadeInScale}
+                transition={{ delay: 0.3 }}
+              >
+                Difference
+              </motion.span>
+            </motion.h2>
+            <motion.p 
+              className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed"
+              variants={fadeInUp}
+              transition={{ delay: 0.1 }}
+            >
               Real examples of our compliance-focused staging. Notice how we preserve every architectural detail 
               while creating stunning, sellable spaces.
-            </p>
-          </div>
+            </motion.p>
+          </ScrollReveal>
 
           {/* Gallery Grid */}
-          <div className="grid lg:grid-cols-2 gap-12 mb-16">
+          <StaggerReveal className="grid lg:grid-cols-2 gap-12 mb-16" staggerDelay={0.2}>
             
             {/* Example 1 - Living Room */}
-            <div className="bg-gray-50 rounded-2xl p-6 hover:shadow-xl transition-all duration-500">
+            <motion.div 
+              className="bg-gray-50 rounded-2xl p-6 hover:shadow-xl transition-all duration-500"
+              variants={fadeInUp}
+              whileHover={{ 
+                scale: 1.02,
+                y: -5,
+                transition: { duration: 0.3 }
+              }}
+            >
               <div className="mb-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "var(--brand-primary)" }}>
@@ -641,10 +969,18 @@ export default function Home() {
                   <span className="text-xs font-medium text-gray-800">Buyer appeal</span>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Example 2 - Bedroom */}
-            <div className="bg-gray-50 rounded-2xl p-6 hover:shadow-xl transition-all duration-500">
+            <motion.div 
+              className="bg-gray-50 rounded-2xl p-6 hover:shadow-xl transition-all duration-500"
+              variants={fadeInUp}
+              whileHover={{ 
+                scale: 1.02,
+                y: -5,
+                transition: { duration: 0.3 }
+              }}
+            >
               <div className="mb-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "var(--brand-primary)" }}>
@@ -660,8 +996,8 @@ export default function Home() {
               {/* Interactive Before/After Slider */}
               <div className="mb-4">
                 <BeforeAfterSlider 
-                  beforeImage="/images/emptyroom.jpg"
-                  afterImage="/images/stagedroom.png"
+                  beforeImage="/images/emptymasterbed.jpg"
+                  afterImage="/images/stagedmasterbed.png"
                   beforeAlt="Empty bedroom before staging"
                   afterAlt="Staged bedroom after virtual staging"
                   beforeLabel="Empty Room"
@@ -688,10 +1024,18 @@ export default function Home() {
                   <span className="text-xs font-medium text-gray-800">MLS compliant</span>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Example 3 - Kitchen */}
-            <div className="bg-gray-50 rounded-2xl p-6 hover:shadow-xl transition-all duration-500">
+            <motion.div 
+              className="bg-gray-50 rounded-2xl p-6 hover:shadow-xl transition-all duration-500"
+              variants={fadeInUp}
+              whileHover={{ 
+                scale: 1.02,
+                y: -5,
+                transition: { duration: 0.3 }
+              }}
+            >
               <div className="mb-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "var(--brand-primary)" }}>
@@ -707,8 +1051,8 @@ export default function Home() {
               {/* Interactive Before/After Slider */}
               <div className="mb-4">
                 <BeforeAfterSlider 
-                  beforeImage="/images/emptyroom.jpg"
-                  afterImage="/images/stagedroom.png"
+                  beforeImage="/images/emptykitchen.png"
+                  afterImage="/images/stagedkitchen.png"
                   beforeAlt="Empty kitchen before staging"
                   afterAlt="Staged kitchen after virtual staging"
                   beforeLabel="Empty Space"
@@ -735,10 +1079,18 @@ export default function Home() {
                   <span className="text-xs font-medium text-gray-800">Auto watermarked</span>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Example 4 - Home Office */}
-            <div className="bg-gray-50 rounded-2xl p-6 hover:shadow-xl transition-all duration-500">
+            <motion.div 
+              className="bg-gray-50 rounded-2xl p-6 hover:shadow-xl transition-all duration-500"
+              variants={fadeInUp}
+              whileHover={{ 
+                scale: 1.02,
+                y: -5,
+                transition: { duration: 0.3 }
+              }}
+            >
               <div className="mb-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "var(--brand-primary)" }}>
@@ -754,8 +1106,8 @@ export default function Home() {
               {/* Interactive Before/After Slider */}
               <div className="mb-4">
                 <BeforeAfterSlider 
-                  beforeImage="/images/emptyroom.jpg"
-                  afterImage="/images/stagedroom.png"
+                  beforeImage="/images/emptyoffice.jpg"
+                  afterImage="/images/stagedoffice.png"
                   beforeAlt="Empty spare room before staging"
                   afterAlt="Staged home office after virtual staging"
                   beforeLabel="Spare Room"
@@ -782,8 +1134,8 @@ export default function Home() {
                   <span className="text-xs font-medium text-gray-800">Buyer appeal</span>
                 </div>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </StaggerReveal>
         </div>
       </section>
 
@@ -801,40 +1153,136 @@ export default function Home() {
           </div>
 
           {/* Features Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-3 gap-8"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={{
+              visible: {
+                transition: {
+                  staggerChildren: 0.2
+                }
+              }
+            }}
+          >
             {/* Feature 1 - Furniture Only */}
-            <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 text-center hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: "var(--brand-primary)" }}>
+            <motion.div 
+              className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 text-center"
+              variants={{
+                hidden: { opacity: 0, y: 30 },
+                visible: { opacity: 1, y: 0 }
+              }}
+              whileHover={{ 
+                scale: 1.05,
+                y: -8,
+                transition: { duration: 0.3, ease: "easeOut" }
+              }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <motion.div 
+                className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6" 
+                style={{ backgroundColor: "var(--brand-primary)" }}
+                whileHover={{ 
+                  scale: 1.1,
+                  rotate: 5,
+                  transition: { duration: 0.3 }
+                }}
+                animate={{ 
+                  y: [0, -3, 0],
+                  transition: { 
+                    duration: 3, 
+                    repeat: Infinity, 
+                    ease: "easeInOut" 
+                  }
+                }}
+              >
                 <HomeIcon className="w-8 h-8 text-white" />
-              </div>
+              </motion.div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">Furniture-Only Generation</h3>
               <p className="text-gray-600 leading-relaxed">
                 Our AI never alters walls, windows, floors, or any structural elements. Only furniture and decor are added, ensuring complete MLS compliance.
               </p>
-            </div>
+            </motion.div>
 
             {/* Feature 2 - Auto Watermarking */}
-            <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 text-center hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: "var(--brand-primary)" }}>
+            <motion.div 
+              className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 text-center"
+              variants={{
+                hidden: { opacity: 0, y: 30 },
+                visible: { opacity: 1, y: 0 }
+              }}
+              whileHover={{ 
+                scale: 1.05,
+                y: -8,
+                transition: { duration: 0.3, ease: "easeOut" }
+              }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <motion.div 
+                className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6" 
+                style={{ backgroundColor: "var(--brand-primary)" }}
+                whileHover={{ 
+                  scale: 1.1,
+                  rotate: -5,
+                  transition: { duration: 0.3 }
+                }}
+                animate={{ 
+                  y: [0, -3, 0],
+                  transition: { 
+                    duration: 3.5, 
+                    repeat: Infinity, 
+                    ease: "easeInOut" 
+                  }
+                }}
+              >
                 <Badge className="w-8 h-8 text-white" />
-              </div>
+              </motion.div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">Auto Watermarking</h3>
               <p className="text-gray-600 leading-relaxed">
                 &ldquo;Virtually Staged&rdquo; watermarks are automatically applied to every staged image, clearly identifying enhanced photos to buyers and agents.
               </p>
-            </div>
+            </motion.div>
 
             {/* Feature 3 - Dual Export */}
-            <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 text-center hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: "var(--brand-primary)" }}>
+            <motion.div 
+              className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 text-center"
+              variants={{
+                hidden: { opacity: 0, y: 30 },
+                visible: { opacity: 1, y: 0 }
+              }}
+              whileHover={{ 
+                scale: 1.05,
+                y: -8,
+                transition: { duration: 0.3, ease: "easeOut" }
+              }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <motion.div 
+                className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6" 
+                style={{ backgroundColor: "var(--brand-primary)" }}
+                whileHover={{ 
+                  scale: 1.1,
+                  rotate: 5,
+                  transition: { duration: 0.3 }
+                }}
+                animate={{ 
+                  y: [0, -3, 0],
+                  transition: { 
+                    duration: 4, 
+                    repeat: Infinity, 
+                    ease: "easeInOut" 
+                  }
+                }}
+              >
                 <Download className="w-8 h-8 text-white" />
-              </div>
+              </motion.div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">Dual Export Package</h3>
               <p className="text-gray-600 leading-relaxed">
                 Get both staged and original empty photos in one download. Perfect for MLS listings that require both versions to be available.
               </p>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
@@ -896,7 +1344,7 @@ export default function Home() {
                     className={`inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-white transition-all hover:shadow-lg ${
                       isUploading 
                         ? 'opacity-75 cursor-not-allowed' 
-                        : 'hover:scale-105'
+                        : 'hover:scale-105 cursor-pointer'
                     }`}
                     style={{ backgroundColor: "var(--brand-primary)" }}
                     disabled={isUploading}
@@ -1094,22 +1542,78 @@ export default function Home() {
           </div>
           
           {/* Optimized Bento Grid Layout - Following Best Practices */}
-          <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4" style={{ gridTemplateRows: 'repeat(2, 220px) 250px' }}>
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4 auto-rows-auto"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          >
             
             {/* PRIMARY: MLS Compliance - Largest Hero Feature (Emphasis) */}
-            <div className="md:col-span-4 lg:col-span-4 md:row-span-2 bg-white rounded-2xl p-6 md:p-8 shadow-sm hover:shadow-xl transition-all duration-500 border border-gray-100 group relative overflow-hidden cursor-pointer hover:scale-[1.02] hover:-translate-y-1">
+            <motion.div 
+              className="md:col-span-4 lg:col-span-4 bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 group relative overflow-hidden cursor-pointer"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              whileHover={{ 
+                scale: 1.02, 
+                y: -8,
+                transition: { duration: 0.3, ease: "easeOut" }
+              }}
+              whileTap={{ scale: 0.98 }}
+            >
               {/* Floating icon for visual balance */}
-              <div className="absolute top-4 right-4 md:top-6 md:right-6 opacity-10 group-hover:opacity-30 transition-all duration-500 group-hover:rotate-12 group-hover:scale-110">
+              <motion.div 
+                className="absolute top-4 right-4 md:top-6 md:right-6 opacity-10"
+                whileHover={{ 
+                  opacity: 0.3, 
+                  scale: 1.05,
+                  rotate: 5,
+                  transition: { duration: 0.3 }
+                }}
+                animate={{ 
+                  y: [0, -5, 0],
+                  transition: { 
+                    duration: 3, 
+                    repeat: Infinity, 
+                    ease: "easeInOut" 
+                  }
+                }}
+              >
                 <div className="w-20 h-20 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "var(--brand-success)" }}>
-                  <Shield className="w-10 h-10 text-white group-hover:animate-pulse" />
+                  <Shield className="w-10 h-10 text-white" />
                 </div>
-              </div>
+              </motion.div>
               
               <div className="relative z-10 h-full flex flex-col">
-                <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold mb-4 w-fit group-hover:bg-green-200 group-hover:scale-105 transition-all duration-300">
-                  <CheckCircle className="w-3 h-3 group-hover:animate-spin" />
+                <motion.div 
+                  className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold mb-4 w-fit"
+                  whileHover={{ 
+                    backgroundColor: "rgb(187, 247, 208)", 
+                    scale: 1.05,
+                    transition: { duration: 0.2 }
+                  }}
+                  initial={{ opacity: 0, x: -20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: 0.2 }}
+                >
+                  <motion.div
+                    animate={{ 
+                      scale: [1, 1.1, 1],
+                      transition: { 
+                        duration: 2, 
+                        repeat: Infinity, 
+                        ease: "easeInOut" 
+                      }
+                    }}
+                  >
+                    <CheckCircle className="w-3 h-3" />
+                  </motion.div>
                   100% MLS Compliant
-                </div>
+                </motion.div>
                 
                 <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3 leading-tight group-hover:text-green-800 transition-colors duration-300">
                   MLS Compliance Guaranteed
@@ -1121,33 +1625,88 @@ export default function Home() {
                 </p>
                 
                 {/* Simplified feature grid for better spacing */}
-                <div className="grid grid-cols-2 gap-3 mt-auto">
-                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100">
-                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                    <span className="text-xs font-medium text-gray-800">Furniture only</span>
-                  </div>
-                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100">
-                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                    <span className="text-xs font-medium text-gray-800">Auto watermark</span>
-                  </div>
-                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100">
-                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                    <span className="text-xs font-medium text-gray-800">Dual exports</span>
-                  </div>
-                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100">
-                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                    <span className="text-xs font-medium text-gray-800">Structure preserved</span>
-                  </div>
-                </div>
+                <motion.div 
+                  className="grid grid-cols-2 gap-3 mt-auto"
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  variants={{
+                    visible: {
+                      transition: {
+                        staggerChildren: 0.1
+                      }
+                    }
+                  }}
+                >
+                  {[
+                    { icon: CheckCircle, text: "Furniture only" },
+                    { icon: CheckCircle, text: "Auto watermark" },
+                    { icon: CheckCircle, text: "Dual exports" },
+                    { icon: CheckCircle, text: "Structure preserved" }
+                  ].map((item, index) => (
+                    <motion.div 
+                      key={index}
+                      className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100 cursor-pointer"
+                      variants={{
+                        hidden: { opacity: 0, y: 20 },
+                        visible: { opacity: 1, y: 0 }
+                      }}
+                      whileHover={{ 
+                        backgroundColor: "rgb(220, 252, 231)", 
+                        scale: 1.05,
+                        transition: { duration: 0.2 }
+                      }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <motion.div
+                        whileHover={{ 
+                          scale: 1.1,
+                          transition: { duration: 0.2 }
+                        }}
+                      >
+                        <item.icon className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      </motion.div>
+                      <span className="text-xs font-medium text-gray-800">{item.text}</span>
+                    </motion.div>
+                  ))}
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
 
             {/* SECONDARY: Style Palettes - Medium Feature (Taller) */}
-            <div className="md:col-span-2 lg:col-span-2 md:row-span-2 bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-500 border border-gray-100 group relative overflow-hidden cursor-pointer hover:scale-[1.02] hover:-translate-y-1">
+            <motion.div 
+              className="md:col-span-2 lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100 group relative overflow-hidden cursor-pointer"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              whileHover={{ 
+                scale: 1.02, 
+                y: -8,
+                transition: { duration: 0.3, ease: "easeOut" }
+              }}
+              whileTap={{ scale: 0.98 }}
+            >
               <div className="h-full flex flex-col">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-12 transition-all duration-300" style={{ background: `linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-hover) 100%)` }}>
-                  <Palette className="w-6 h-6 text-white group-hover:animate-bounce" />
-                </div>
+                <motion.div 
+                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+                  style={{ background: `linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-hover) 100%)` }}
+                  whileHover={{ 
+                    scale: 1.05,
+                    rotate: 5,
+                    transition: { duration: 0.3 }
+                  }}
+                  animate={{ 
+                    y: [0, -3, 0],
+                    transition: { 
+                      duration: 4, 
+                      repeat: Infinity, 
+                      ease: "easeInOut" 
+                    }
+                  }}
+                >
+                  <Palette className="w-6 h-6 text-white" />
+                </motion.div>
                 
                 <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-blue-900 transition-colors duration-300">Style Palettes</h3>
                 <p className="text-xs font-semibold mb-3 group-hover:scale-105 transition-transform duration-300" style={{ color: "var(--brand-primary)" }}>Consistent Styling</p>
@@ -1157,44 +1716,107 @@ export default function Home() {
                 </p>
                 
                 {/* Enhanced style palette options with hover animations */}
-                <div className="space-y-3 mt-auto">
-                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg hover:bg-gray-100 hover:scale-105 transition-all duration-300 cursor-pointer">
-                    <span className="text-sm text-gray-700 font-medium">Modern Minimal</span>
-                    <div className="w-6 h-6 rounded-lg bg-gray-300 shadow-sm hover:shadow-md transition-shadow duration-300"></div>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-blue-50 rounded-lg hover:bg-blue-100 hover:scale-105 transition-all duration-300 cursor-pointer">
-                    <span className="text-sm text-gray-700 font-medium">Scandinavian</span>
-                    <div className="w-6 h-6 rounded-lg shadow-sm hover:shadow-md hover:animate-pulse transition-all duration-300" style={{ backgroundColor: "var(--brand-primary)" }}></div>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg hover:bg-purple-100 hover:scale-105 transition-all duration-300 cursor-pointer">
-                    <span className="text-sm text-gray-700 font-medium">Bohemian</span>
-                    <div className="w-6 h-6 rounded-lg bg-gradient-to-r from-purple-400 to-pink-400 shadow-sm hover:shadow-md hover:animate-pulse transition-all duration-300"></div>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg hover:from-blue-100 hover:to-purple-100 hover:scale-105 transition-all duration-300 cursor-pointer">
-                    <span className="text-sm text-gray-700 font-medium">+ Custom Styles</span>
-                    <div className="w-6 h-6 rounded-lg bg-gradient-to-r from-blue-400 to-purple-400 shadow-sm hover:shadow-md hover:animate-spin transition-all duration-300"></div>
-                  </div>
-                </div>
+                <motion.div 
+                  className="space-y-3 mt-auto"
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  variants={{
+                    visible: {
+                      transition: {
+                        staggerChildren: 0.1
+                      }
+                    }
+                  }}
+                >
+                  {[
+                    { name: "Modern Minimal", bg: "bg-gray-50", hoverBg: "bg-gray-100", color: "bg-gray-300" },
+                    { name: "Scandinavian", bg: "bg-blue-50", hoverBg: "bg-blue-100", color: "var(--brand-primary)" },
+                    { name: "Bohemian", bg: "bg-purple-50", hoverBg: "bg-purple-100", color: "bg-gradient-to-r from-purple-400 to-pink-400" },
+                    { name: "+ Custom Styles", bg: "bg-gradient-to-r from-blue-50 to-purple-50", hoverBg: "bg-gradient-to-r from-blue-100 to-purple-100", color: "bg-gradient-to-r from-blue-400 to-purple-400" }
+                  ].map((style, index) => (
+                    <motion.div 
+                      key={index}
+                      className={`flex justify-between items-center p-2 ${style.bg} rounded-lg cursor-pointer`}
+                      variants={{
+                        hidden: { opacity: 0, x: -20 },
+                        visible: { opacity: 1, x: 0 }
+                      }}
+                      whileHover={{ 
+                        backgroundColor: style.hoverBg.includes('gradient') ? undefined : style.hoverBg,
+                        scale: 1.05,
+                        transition: { duration: 0.2 }
+                      }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <span className="text-sm text-gray-700 font-medium">{style.name}</span>
+                      <motion.div 
+                        className="w-6 h-6 rounded-lg shadow-sm"
+                        style={{ backgroundColor: style.color }}
+                        whileHover={{ 
+                          scale: 1.1,
+                          transition: { duration: 0.2 }
+                        }}
+                        animate={index === 1 ? { 
+                          scale: [1, 1.05, 1],
+                          transition: { 
+                            duration: 2, 
+                            repeat: Infinity, 
+                            ease: "easeInOut" 
+                          }
+                        } : {}}
+                      />
+                    </motion.div>
+                  ))}
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
 
             {/* TERTIARY: Review & Refine - Wide Feature */}
-            <div className="md:col-span-4 lg:col-span-3 bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-500 border border-gray-100 group relative overflow-hidden cursor-pointer hover:scale-[1.02] hover:-translate-y-1">
+            <motion.div 
+              className="md:col-span-4 lg:col-span-3 bg-white rounded-2xl p-6 shadow-sm border border-gray-100 group relative overflow-hidden cursor-pointer"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              whileHover={{ 
+                scale: 1.02, 
+                y: -8,
+                transition: { duration: 0.3, ease: "easeOut" }
+              }}
+              whileTap={{ scale: 0.98 }}
+            >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-blue-900 transition-colors duration-300">Review & Refine</h3>
                   <p className="text-gray-600 text-sm">Before/after slider, approve or regenerate images. Perfect control over every result.</p>
                 </div>
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center ml-4 group-hover:scale-110 group-hover:rotate-12 transition-all duration-300" style={{ backgroundColor: "var(--brand-primary)" }}>
-                  <Download className="w-6 h-6 text-white group-hover:animate-bounce" />
-                </div>
+                <motion.div 
+                  className="w-12 h-12 rounded-xl flex items-center justify-center ml-4"
+                  style={{ backgroundColor: "var(--brand-primary)" }}
+                  whileHover={{ 
+                    scale: 1.05,
+                    rotate: 5,
+                    transition: { duration: 0.3 }
+                  }}
+                  animate={{ 
+                    y: [0, -2, 0],
+                    transition: { 
+                      duration: 3, 
+                      repeat: Infinity, 
+                      ease: "easeInOut" 
+                    }
+                  }}
+                >
+                  <Download className="w-6 h-6 text-white" />
+                </motion.div>
               </div>
               
               {/* Interactive Before/After preview */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500 group-hover:text-gray-700 transition-colors">Approval Status</span>
-                  <span className="font-semibold text-green-600 group-hover:scale-110 transition-transform duration-300">12/15 Approved</span>
+                  <span className="font-semibold text-green-600 group-hover:scale-105 transition-transform duration-300">12/15 Approved</span>
                 </div>
                 <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden group-hover:h-3 transition-all duration-300">
                   <div 
@@ -1207,14 +1829,42 @@ export default function Home() {
                 </div>
                 <div className="text-xs text-gray-500 group-hover:text-gray-700 transition-colors">MLS-ready exports available</div>
               </div>
-            </div>
+            </motion.div>
 
             {/* TERTIARY: Batch Upload - Square Feature */}
-            <div className="md:col-span-2 lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-500 border border-gray-100 group relative overflow-hidden cursor-pointer hover:scale-[1.02] hover:-translate-y-1">
+            <motion.div 
+              className="md:col-span-2 lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100 group relative overflow-hidden cursor-pointer"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              whileHover={{ 
+                scale: 1.02, 
+                y: -8,
+                transition: { duration: 0.3, ease: "easeOut" }
+              }}
+              whileTap={{ scale: 0.98 }}
+            >
               <div className="h-full flex flex-col">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:-rotate-12 transition-all duration-300" style={{ backgroundColor: "var(--brand-primary)" }}>
-                  <Upload className="w-6 h-6 text-white group-hover:animate-bounce" />
-                </div>
+                <motion.div 
+                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+                  style={{ backgroundColor: "var(--brand-primary)" }}
+                  whileHover={{ 
+                    scale: 1.05,
+                    rotate: -5,
+                    transition: { duration: 0.3 }
+                  }}
+                  animate={{ 
+                    y: [0, -2, 0],
+                    transition: { 
+                      duration: 3.5, 
+                      repeat: Infinity, 
+                      ease: "easeInOut" 
+                    }
+                  }}
+                >
+                  <Upload className="w-6 h-6 text-white" />
+                </motion.div>
                 
                 <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-blue-900 transition-colors duration-300">Batch Upload</h3>
                 <p className="text-xs font-semibold mb-3 group-hover:scale-105 transition-transform duration-300" style={{ color: "var(--brand-primary)" }}>Entire listings at once</p>
@@ -1225,7 +1875,7 @@ export default function Home() {
                 
                 {/* Interactive progress visualization */}
                 <div className="space-y-2 mt-auto">
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <div className="flex items-center gap-2 text-xs text-gray-500 group-hover:text-gray-700 transition-colors">
                     <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden group-hover:h-3 transition-all duration-300">
                       <div 
                         className="h-full rounded-full transition-all duration-1000 group-hover:animate-pulse" 
@@ -1235,9 +1885,9 @@ export default function Home() {
                         }}
                       ></div>
                     </div>
-                    <span className="group-hover:scale-110 transition-transform duration-300">15 photos</span>
+                    <span className="group-hover:scale-105 transition-transform duration-300">15 photos</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <div className="flex items-center gap-2 text-xs text-gray-500 group-hover:text-gray-700 transition-colors">
                     <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden group-hover:h-3 transition-all duration-300">
                       <div 
                         className="h-full rounded-full transition-all duration-1000 group-hover:animate-pulse" 
@@ -1248,18 +1898,46 @@ export default function Home() {
                         }}
                       ></div>
                     </div>
-                    <span className="group-hover:scale-110 transition-transform duration-300">Processing</span>
+                    <span className="group-hover:scale-105 transition-transform duration-300">Processing</span>
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* TERTIARY: Team Accounts - Square Feature */}
-            <div className="md:col-span-2 lg:col-span-1 bg-white rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all duration-500 border border-gray-100 group relative overflow-hidden cursor-pointer hover:scale-[1.02] hover:-translate-y-1">
+            <motion.div 
+              className="md:col-span-2 lg:col-span-1 bg-white rounded-2xl p-5 shadow-sm border border-gray-100 group relative overflow-hidden cursor-pointer"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+              whileHover={{ 
+                scale: 1.02, 
+                y: -8,
+                transition: { duration: 0.3, ease: "easeOut" }
+              }}
+              whileTap={{ scale: 0.98 }}
+            >
               <div className="h-full flex flex-col">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 group-hover:rotate-12 transition-all duration-300" style={{ background: `linear-gradient(135deg, var(--brand-primary-hover) 0%, var(--brand-primary) 100%)` }}>
-                  <Users className="w-5 h-5 text-white group-hover:animate-bounce" />
-                </div>
+                <motion.div 
+                  className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
+                  style={{ background: `linear-gradient(135deg, var(--brand-primary-hover) 0%, var(--brand-primary) 100%)` }}
+                  whileHover={{ 
+                    scale: 1.05,
+                    rotate: 5,
+                    transition: { duration: 0.3 }
+                  }}
+                  animate={{ 
+                    y: [0, -2, 0],
+                    transition: { 
+                      duration: 4, 
+                      repeat: Infinity, 
+                      ease: "easeInOut" 
+                    }
+                  }}
+                >
+                  <Users className="w-5 h-5 text-white" />
+                </motion.div>
                 
                 <h3 className="text-base font-bold text-gray-900 mb-1 group-hover:text-blue-900 transition-colors duration-300">Team Accounts</h3>
                 <p className="text-xs font-semibold mb-3 group-hover:scale-105 transition-transform duration-300" style={{ color: "var(--brand-primary)" }}>Pro & Business</p>
@@ -1277,18 +1955,30 @@ export default function Home() {
                 </div>
                 <p className="text-xs text-gray-500 group-hover:text-gray-700 transition-colors">Up to 10 seats</p>
               </div>
-            </div>
+            </motion.div>
 
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Pricing Preview */}
       <section id="pricing" className="px-6 py-20" style={{ backgroundColor: "var(--brand-light)" }}>
         <div className="mx-auto max-w-7xl">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Simple, Transparent Pricing</h2>
-            <p className="text-xl text-black/60 mb-6">Plans designed for agents and teams. Start with a free trial when we launch.</p>
+          <ScrollReveal className="text-center mb-16">
+            <motion.h2 
+              className="text-3xl md:text-4xl font-bold mb-4"
+              variants={fadeInUp}
+            >
+              Simple, Transparent Pricing
+            </motion.h2>
+            <motion.p 
+              className="text-xl text-black/60 mb-6"
+              variants={fadeInUp}
+              transition={{ delay: 0.1 }}
+            >
+              Plans designed for agents and teams. Start with a free trial when we launch.
+            </motion.p>
+          </ScrollReveal>
             
             {/* Pricing Toggle */}
             <div className="flex items-center justify-center mb-8">
@@ -1296,7 +1986,7 @@ export default function Home() {
                 <div className="flex items-center">
                   <button 
                     onClick={() => setIsYearly(false)}
-                    className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all ${
+                    className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all cursor-pointer hover:scale-105 ${
                       !isYearly 
                         ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md' 
                         : 'text-gray-600 hover:text-gray-900'
@@ -1306,7 +1996,7 @@ export default function Home() {
                   </button>
                   <button 
                     onClick={() => setIsYearly(true)}
-                    className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all ${
+                    className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all cursor-pointer hover:scale-105 ${
                       isYearly 
                         ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md' 
                         : 'text-gray-600 hover:text-gray-900'
@@ -1392,8 +2082,10 @@ export default function Home() {
               
               <button 
                 onClick={() => scrollToSection('waitlist')}
-                className="w-full rounded-lg px-6 py-3 font-semibold text-white transition-all hover:shadow-lg mt-auto" 
+                className="w-full rounded-lg px-6 py-3 font-semibold text-white transition-all hover:shadow-lg hover:scale-105 cursor-pointer mt-auto" 
                 style={{ backgroundColor: "var(--brand-primary)" }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
               >
                 Join Waitlist
               </button>
@@ -1446,7 +2138,10 @@ export default function Home() {
               
               <button 
                 onClick={() => scrollToSection('waitlist')}
-                className="w-full rounded-lg px-6 py-3 font-semibold text-white bg-gradient-to-r from-blue-600 to-purple-600 transition-all hover:shadow-lg mt-auto"
+                className="w-full rounded-lg px-6 py-3 font-semibold text-white transition-all hover:shadow-lg hover:scale-105 cursor-pointer mt-auto"
+                style={{ backgroundColor: "var(--brand-primary)" }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
               >
                 Join Waitlist
               </button>
@@ -1493,14 +2188,15 @@ export default function Home() {
               
               <button 
                 onClick={() => scrollToSection('waitlist')}
-                className="w-full rounded-lg px-6 py-3 font-semibold text-white transition-all hover:shadow-lg mt-auto" 
+                className="w-full rounded-lg px-6 py-3 font-semibold text-white transition-all hover:shadow-lg hover:scale-105 cursor-pointer mt-auto" 
                 style={{ backgroundColor: "var(--brand-primary)" }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
               >
                 Join Waitlist
               </button>
             </div>
           </div>
-        </div>
         </div>
       </section>
 
@@ -1811,7 +2507,7 @@ export default function Home() {
               </p>
               <button 
                 onClick={() => scrollToSection('waitlist')}
-                className="inline-flex items-center gap-3 px-8 py-4 rounded-xl font-semibold text-white text-lg transition-all hover:shadow-xl hover:scale-105 duration-300"
+                className="inline-flex items-center gap-3 px-8 py-4 rounded-xl font-semibold text-white text-lg transition-all hover:shadow-xl hover:scale-105 duration-300 cursor-pointer"
                 style={{ background: `linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-hover) 100%)` }}
               >
                 <Users className="w-5 h-5" />
@@ -1831,40 +2527,28 @@ export default function Home() {
             <div className="md:col-span-2">
               <h3 className="text-2xl font-bold mb-4">RoomsThatSell</h3>
               <p className="text-white/70 mb-6 leading-relaxed">
-                The fastest, most affordable, and MLS-compliant virtual staging solution for real estate agents and brokerages. 
+                The fastest, most affordable virtual staging solution for real estate agents and brokerages. 
                 Transform empty rooms into stunning staged photos in minutes.
               </p>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-green-400" />
-                  <span className="text-sm">MLS Compliant</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Star className="w-5 h-5 text-yellow-400" />
-                  <span className="text-sm">4.8/5 Rating</span>
-                </div>
-              </div>
             </div>
 
             {/* Quick links */}
             <div>
               <h4 className="font-semibold mb-4">Product</h4>
               <ul className="space-y-3 text-white/70">
-                <li><button onClick={() => scrollToSection('features')} className="hover:text-white transition-colors text-left">Features</button></li>
-                <li><button onClick={() => scrollToSection('pricing')} className="hover:text-white transition-colors text-left">Pricing</button></li>
-                <li><button onClick={() => scrollToSection('faqs')} className="hover:text-white transition-colors text-left">FAQ</button></li>
-                <li><button onClick={() => scrollToSection('about')} className="hover:text-white transition-colors text-left">How It Works</button></li>
+                <li><button onClick={() => scrollToSection('features')} className="hover:text-white transition-colors text-left cursor-pointer hover:scale-105">Features</button></li>
+                <li><button onClick={() => scrollToSection('examples')} className="hover:text-white transition-colors text-left cursor-pointer hover:scale-105">Examples</button></li>
+                <li><button onClick={() => scrollToSection('pricing')} className="hover:text-white transition-colors text-left cursor-pointer hover:scale-105">Pricing</button></li>
+                <li><button onClick={() => scrollToSection('faqs')} className="hover:text-white transition-colors text-left cursor-pointer hover:scale-105">FAQ</button></li>
               </ul>
             </div>
 
-            {/* Support */}
+            {/* Legal */}
             <div>
-              <h4 className="font-semibold mb-4">Support</h4>
+              <h4 className="font-semibold mb-4">Legal</h4>
               <ul className="space-y-3 text-white/70">
-                <li><a href="mailto:support@roomsthatsell.com" className="hover:text-white transition-colors">Contact Support</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">MLS Guidelines</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="/terms" className="hover:text-white transition-colors">Terms of Service</a></li>
+                <li><a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a></li>
               </ul>
             </div>
           </div>
@@ -1888,8 +2572,18 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={newsletterStatus === "loading"}
-                  className="px-6 py-3 rounded-lg font-semibold transition-all hover:shadow-lg disabled:opacity-50 flex items-center gap-2"
+                  className="px-6 py-3 rounded-lg font-semibold transition-all hover:shadow-lg hover:scale-105 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                   style={{ backgroundColor: "var(--brand-primary)" }}
+                  onMouseEnter={(e) => {
+                    if (newsletterStatus !== "loading") {
+                      e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (newsletterStatus !== "loading") {
+                      e.currentTarget.style.backgroundColor = "var(--brand-primary)";
+                    }
+                  }}
                 >
                   {newsletterStatus === "loading" ? (
                     <>
@@ -1918,8 +2612,6 @@ export default function Home() {
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-6 text-sm text-white/70">
                 <p>© {new Date().getFullYear()} RoomsThatSell. All rights reserved.</p>
-                <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-                <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
               </div>
               
               {/* Final CTA */}
@@ -1930,8 +2622,10 @@ export default function Home() {
                 </div>
                 <button 
                   onClick={() => scrollToSection('waitlist')}
-                  className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-semibold transition-all hover:shadow-lg"
+                  className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-semibold transition-all hover:shadow-lg hover:scale-105 cursor-pointer"
                   style={{ backgroundColor: "var(--brand-primary)" }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
                 >
                   <Users className="w-4 h-4" />
                   Join Waitlist

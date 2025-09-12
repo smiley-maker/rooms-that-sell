@@ -6,6 +6,7 @@ import { ConvexHttpClient } from "convex/browser";
 const WaitlistSchema = z.object({
   email: z.string().email(),
   listingsPerMonth: z.string().optional(),
+  source: z.string().optional(),
 });
 
 export async function POST(request: Request) {
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
     await client.mutation(api.waitlist.join, {
       email: parsed.data.email,
       listingsPerMonth: parsed.data.listingsPerMonth,
-      source: "landing",
+      source: parsed.data.source || "landing",
     });
 
     return NextResponse.json({ ok: true });
