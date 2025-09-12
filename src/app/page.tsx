@@ -314,12 +314,16 @@ function Navigation() {
         {/* Logo */}
         <button 
           onClick={() => scrollToSection('hero')}
-          className="flex items-center gap-2 cursor-pointer hover:scale-105 transition-transform"
+          className="cursor-pointer hover:scale-105 transition-transform"
         >
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">R</span>
-          </div>
-          <span className="font-semibold text-lg">RoomsThatSell</span>
+          <Image
+            src="/images/roomsthatselllogo.png"
+            alt="Rooms That Sell"
+            width={150}
+            height={50}
+            className="h-12 w-auto"
+            priority
+          />
         </button>
 
         {/* Desktop Navigation */}
@@ -1971,7 +1975,7 @@ export default function Home() {
                 <li><a href="mailto:support@roomsthatsell.com" className="hover:text-white transition-colors">Contact Support</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">MLS Guidelines</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a></li>
               </ul>
             </div>
           </div>
@@ -2035,8 +2039,8 @@ export default function Home() {
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-6 text-sm text-white/70">
                 <p>© {new Date().getFullYear()} RoomsThatSell. All rights reserved.</p>
-                <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-                <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
+                <a href="/terms" className="hover:text-white transition-colors">Terms of Service</a>
+                <a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a>
               </div>
               
               {/* Final CTA */}
