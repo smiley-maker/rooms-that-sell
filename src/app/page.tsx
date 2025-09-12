@@ -11,15 +11,16 @@ const fadeInUp = {
   visible: { opacity: 1, y: 0 }
 };
 
-const fadeInLeft = {
-  hidden: { opacity: 0, x: -30 },
-  visible: { opacity: 1, x: 0 }
-};
+// Animation variants (currently unused but kept for future use)
+// const fadeInLeft = {
+//   hidden: { opacity: 0, x: -30 },
+//   visible: { opacity: 1, x: 0 }
+// };
 
-const fadeInRight = {
-  hidden: { opacity: 0, x: 30 },
-  visible: { opacity: 1, x: 0 }
-};
+// const fadeInRight = {
+//   hidden: { opacity: 0, x: 30 },
+//   visible: { opacity: 1, x: 0 }
+// };
 
 const fadeInScale = {
   hidden: { opacity: 0, scale: 0.9 },
@@ -39,7 +40,7 @@ const staggerContainer = {
 // Reusable animation components
 const ScrollReveal = ({ children, variant = fadeInUp, delay = 0, className = "" }: {
   children: React.ReactNode;
-  variant?: any;
+  variant?: typeof fadeInUp;
   delay?: number;
   className?: string;
 }) => (

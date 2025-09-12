@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Terms of Service - RoomsThatSell',
@@ -12,15 +13,15 @@ export default function TermsOfService() {
       <header className="border-b border-gray-200">
         <div className="mx-auto max-w-4xl px-6 py-8">
           <div className="flex items-center justify-between">
-            <a href="/" className="text-2xl font-bold text-gray-900">
+            <Link href="/" className="text-2xl font-bold text-gray-900">
               RoomsThatSell
-            </a>
-            <a 
+            </Link>
+            <Link 
               href="/" 
               className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
             >
               ← Back to Home
-            </a>
+            </Link>
           </div>
         </div>
       </header>
@@ -39,7 +40,7 @@ export default function TermsOfService() {
           </p>
 
           <p className="text-gray-700 mb-8">
-            Welcome to RoomsThatSell ("we," "our," or "us"). These Terms of Service ("Terms") govern your use of our virtual staging platform and services. By accessing or using our services, you agree to be bound by these Terms.
+            Welcome to RoomsThatSell (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;). These Terms of Service (&ldquo;Terms&rdquo;) govern your use of our virtual staging platform and services. By accessing or using our services, you agree to be bound by these Terms.
           </p>
 
           <h2 className="text-2xl font-semibold text-gray-900 mt-12 mb-6">1. Acceptance of Terms</h2>
@@ -161,7 +162,7 @@ export default function TermsOfService() {
             <li>Subscriptions are billed in advance on a monthly or annual basis</li>
             <li>Payments are processed through Stripe and are non-refundable</li>
             <li>Unused credits do not roll over to the next billing period</li>
-            <li>We may change pricing with 30 days' notice to existing subscribers</li>
+            <li>We may change pricing with 30 days&apos; notice to existing subscribers</li>
           </ul>
 
           <h3 className="text-xl font-medium text-gray-900 mt-8 mb-4">7.3 Free Trial</h3>
@@ -200,7 +201,7 @@ export default function TermsOfService() {
           <h3 className="text-xl font-medium text-gray-900 mt-8 mb-4">9.2 Termination by Us</h3>
           <ul className="list-disc pl-6 mb-6 text-gray-700">
             <li>We may suspend or terminate your account for violation of these Terms</li>
-            <li>We may terminate service with 30 days' notice for business reasons</li>
+            <li>We may terminate service with 30 days&apos; notice for business reasons</li>
             <li>We reserve the right to immediately suspend accounts for serious violations</li>
           </ul>
 
@@ -216,7 +217,7 @@ export default function TermsOfService() {
 
           <h3 className="text-xl font-medium text-gray-900 mt-8 mb-4">10.1 Service Disclaimers</h3>
           <ul className="list-disc pl-6 mb-6 text-gray-700">
-            <li>Our services are provided "as is" without warranties of any kind</li>
+            <li>Our services are provided &ldquo;as is&rdquo; without warranties of any kind</li>
             <li>We do not guarantee specific results from virtual staging</li>
             <li>AI-generated content may not always meet your expectations</li>
             <li>You are responsible for reviewing and approving all staged images</li>
@@ -281,9 +282,9 @@ export default function TermsOfService() {
               © {new Date().getFullYear()} RoomsThatSell. All rights reserved.
             </p>
             <div className="flex items-center gap-6 text-sm">
-              <a href="/" className="text-gray-600 hover:text-gray-900 transition-colors">
+              <Link href="/" className="text-gray-600 hover:text-gray-900 transition-colors">
                 Home
-              </a>
+              </Link>
               <a href="/privacy" className="text-gray-600 hover:text-gray-900 transition-colors">
                 Privacy Policy
               </a>

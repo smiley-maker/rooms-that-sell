@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy - RoomsThatSell',
@@ -12,15 +13,15 @@ export default function PrivacyPolicy() {
       <header className="border-b border-gray-200">
         <div className="mx-auto max-w-4xl px-6 py-8">
           <div className="flex items-center justify-between">
-            <a href="/" className="text-2xl font-bold text-gray-900">
+            <Link href="/" className="text-2xl font-bold text-gray-900">
               RoomsThatSell
-            </a>
-            <a 
+            </Link>
+            <Link 
               href="/" 
               className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
             >
               ← Back to Home
-            </a>
+            </Link>
           </div>
         </div>
       </header>
@@ -39,7 +40,7 @@ export default function PrivacyPolicy() {
           </p>
 
           <p className="text-gray-700 mb-8">
-            At RoomsThatSell ("we," "our," or "us"), we are committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our virtual staging platform and services.
+            At RoomsThatSell (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;), we are committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our virtual staging platform and services.
           </p>
 
           <h2 className="text-2xl font-semibold text-gray-900 mt-12 mb-6">1. Information We Collect</h2>
@@ -170,7 +171,7 @@ export default function PrivacyPolicy() {
             <li>Clear labeling of virtually staged content</li>
           </ul>
 
-          <h2 className="text-2xl font-semibold text-gray-900 mt-12 mb-6">7. Children's Privacy</h2>
+          <h2 className="text-2xl font-semibold text-gray-900 mt-12 mb-6">7. Children&apos;s Privacy</h2>
 
           <p className="text-gray-700 mb-6">
             Our services are not intended for individuals under 18 years of age. We do not knowingly collect personal information from children under 18. If we become aware that we have collected such information, we will take steps to delete it promptly.
@@ -185,7 +186,7 @@ export default function PrivacyPolicy() {
           <h2 className="text-2xl font-semibold text-gray-900 mt-12 mb-6">9. Changes to This Privacy Policy</h2>
 
           <p className="text-gray-700 mb-6">
-            We may update this Privacy Policy from time to time to reflect changes in our practices or legal requirements. We will notify you of any material changes by posting the updated policy on our website and updating the "Last updated" date. Your continued use of our services after such changes constitutes acceptance of the updated policy.
+            We may update this Privacy Policy from time to time to reflect changes in our practices or legal requirements. We will notify you of any material changes by posting the updated policy on our website and updating the &ldquo;Last updated&rdquo; date. Your continued use of our services after such changes constitutes acceptance of the updated policy.
           </p>
 
           <h2 className="text-2xl font-semibold text-gray-900 mt-12 mb-6">10. Contact Us</h2>
@@ -216,9 +217,9 @@ export default function PrivacyPolicy() {
               © {new Date().getFullYear()} RoomsThatSell. All rights reserved.
             </p>
             <div className="flex items-center gap-6 text-sm">
-              <a href="/" className="text-gray-600 hover:text-gray-900 transition-colors">
+              <Link href="/" className="text-gray-600 hover:text-gray-900 transition-colors">
                 Home
-              </a>
+              </Link>
               <a href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
                 Terms of Service
               </a>
