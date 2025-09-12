@@ -46,7 +46,7 @@ Gr
 
 ### 3.3. Future Roadmap (post-MVP)
 - AI decluttering & object removal.
-- Lighting/sky replacements.
+- Lighting/sky replacements.d
 - Video walkthrough generation.
 - “What If” design tool (paint colors, flooring, etc.).
 
