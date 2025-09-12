@@ -92,7 +92,8 @@ function BeforeAfterSlider({
   beforeAlt = "Empty room before staging",
   afterAlt = "Staged room after virtual staging",
   beforeLabel = "Before",
-  afterLabel = "After"
+  afterLabel = "After",
+  priority = false
 }: {
   beforeImage?: string;
   afterImage?: string;
@@ -100,9 +101,68 @@ function BeforeAfterSlider({
   afterAlt?: string;
   beforeLabel?: string;
   afterLabel?: string;
+  priority?: boolean;
 }) {
   const [position, setPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
+  const [lastInteractionTime, setLastInteractionTime] = useState(Date.now());
+
+  // Preload images for better performance
+  useEffect(() => {
+    const preloadImages = async () => {
+      const imagePromises = [beforeImage, afterImage].map(src => {
+        return new Promise<void>((resolve, reject) => {
+          const img = new window.Image();
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+          img.src = src;
+        });
+      });
+      
+      try {
+        await Promise.all(imagePromises);
+        setImagesLoaded(true);
+      } catch (error) {
+        console.warn('Failed to preload some images:', error);
+        setImagesLoaded(true); // Still show images even if preload fails
+      }
+    };
+
+    preloadImages();
+  }, [beforeImage, afterImage]);
+
+  // Smooth easing back to center when not hovering
+  useEffect(() => {
+    if (isHovering || isDragging) return;
+
+    const timeSinceLastInteraction = Date.now() - lastInteractionTime;
+    // Only start easing after 1 second of no interaction
+    if (timeSinceLastInteraction < 1000) return;
+
+    const startPosition = position;
+    const targetPosition = 50;
+    const startTime = Date.now();
+    const duration = 800; // 800ms easing animation
+
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = easeOutCubic(progress);
+      
+      const currentPosition = startPosition + (targetPosition - startPosition) * easedProgress;
+      setPosition(currentPosition);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [isHovering, isDragging, lastInteractionTime, position]);
 
   const handleMouseDown = () => setIsDragging(true);
   const handleMouseUp = () => setIsDragging(false);
@@ -113,6 +173,7 @@ function BeforeAfterSlider({
     const x = e.clientX - rect.left;
     const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
     setPosition(percentage);
+    setLastInteractionTime(Date.now());
   };
 
   // Mobile: Keep original touch behavior for dragging
@@ -123,20 +184,38 @@ function BeforeAfterSlider({
     const x = touch.clientX - rect.left;
     const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
     setPosition(percentage);
+    setLastInteractionTime(Date.now());
+  };
+
+  const handleMouseEnter = () => {
+    setIsHovering(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovering(false);
+    handleMouseUp();
+    setLastInteractionTime(Date.now());
   };
 
   return (
     <div className="relative w-full">
+      {/* Loading skeleton */}
+      {!imagesLoaded && (
+        <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-gray-200 animate-pulse">
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200"></div>
+          <div className="absolute top-4 left-4 bg-gray-400 px-3 py-1 rounded-full text-sm font-medium w-16 h-6"></div>
+          <div className="absolute top-4 right-4 bg-gray-400 px-3 py-1 rounded-full text-sm font-medium w-12 h-6"></div>
+        </div>
+      )}
+      
       {/* Before/After Images */}
       <div 
-        className="relative aspect-[4/3] overflow-hidden rounded-xl cursor-col-resize select-none"
+        className={`relative aspect-[4/3] overflow-hidden rounded-xl cursor-col-resize select-none transition-opacity duration-300 ${imagesLoaded ? 'opacity-100' : 'opacity-0 absolute'}`}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseMove={handleMouseMove}
-        onMouseLeave={() => {
-          handleMouseUp();
-          setPosition(50); // Reset to center when mouse leaves on desktop
-        }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         onTouchStart={handleMouseDown}
         onTouchEnd={handleMouseUp}
         onTouchMove={handleTouchMove}
@@ -149,6 +228,11 @@ function BeforeAfterSlider({
             alt={beforeAlt}
             fill
             className="object-cover"
+            priority={priority}
+            loading={priority ? "eager" : "lazy"}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            placeholder="blur"
+            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
           />
           <div className="absolute top-4 left-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm font-medium">
             {beforeLabel}
@@ -165,6 +249,11 @@ function BeforeAfterSlider({
             alt={afterAlt}
             fill
             className="object-cover"
+            priority={priority}
+            loading={priority ? "eager" : "lazy"}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            placeholder="blur"
+            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
           />
           <div className="absolute top-4 right-4 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
             {afterLabel}
@@ -223,33 +312,39 @@ function Navigation() {
     <nav className="px-6 py-4 bg-white/90 backdrop-blur-sm sticky top-0 z-50 border-b border-gray-100">
       <div className="mx-auto max-w-7xl flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-2">
+        <button 
+          onClick={() => scrollToSection('hero')}
+          className="flex items-center gap-2 cursor-pointer hover:scale-105 transition-transform"
+        >
           <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">R</span>
           </div>
           <span className="font-semibold text-lg">RoomsThatSell</span>
-        </div>
+        </button>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
-          <button onClick={() => scrollToSection('about')} className="text-gray-600 hover:text-gray-900 transition-colors">about</button>
-          <button onClick={() => scrollToSection('features')} className="text-gray-600 hover:text-gray-900 transition-colors">features</button>
-          <button onClick={() => scrollToSection('pricing')} className="text-gray-600 hover:text-gray-900 transition-colors">pricing</button>
-          <button onClick={() => scrollToSection('faqs')} className="text-gray-600 hover:text-gray-900 transition-colors">faqs</button>
+          <button onClick={() => scrollToSection('features')} className="text-gray-600 hover:text-gray-900 transition-colors cursor-pointer hover:scale-105">features</button>
+          <button onClick={() => scrollToSection('examples')} className="text-gray-600 hover:text-gray-900 transition-colors cursor-pointer hover:scale-105">examples</button>
+          <button onClick={() => scrollToSection('pricing')} className="text-gray-600 hover:text-gray-900 transition-colors cursor-pointer hover:scale-105">pricing</button>
+          <button onClick={() => scrollToSection('faqs')} className="text-gray-600 hover:text-gray-900 transition-colors cursor-pointer hover:scale-105">faq</button>
         </div>
 
         {/* CTA Button */}
         <div className="flex items-center gap-4">
           <button 
             onClick={() => scrollToSection('waitlist')}
-            className="hidden md:inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium transition-colors"
+            className="hidden md:inline-flex items-center gap-2 text-white px-6 py-3 rounded-full text-sm font-semibold transition-all hover:shadow-lg hover:scale-105 cursor-pointer"
+            style={{ backgroundColor: "var(--brand-primary)" }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
           >
             sign up for waitlist
           </button>
           
           {/* Mobile Menu Button */}
           <button 
-            className="md:hidden p-2"
+            className="md:hidden p-2 cursor-pointer hover:bg-gray-100 rounded-lg transition-colors"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             aria-label="Toggle menu"
           >
@@ -265,13 +360,16 @@ function Navigation() {
       {isMenuOpen && (
         <div className="md:hidden mt-4 pb-4 border-t border-gray-100">
           <div className="flex flex-col gap-4 pt-4">
-            <button onClick={() => scrollToSection('about')} className="text-gray-600 hover:text-gray-900 transition-colors text-left">about</button>
-            <button onClick={() => scrollToSection('features')} className="text-gray-600 hover:text-gray-900 transition-colors text-left">features</button>
-            <button onClick={() => scrollToSection('pricing')} className="text-gray-600 hover:text-gray-900 transition-colors text-left">pricing</button>
-            <button onClick={() => scrollToSection('faqs')} className="text-gray-600 hover:text-gray-900 transition-colors text-left">faqs</button>
+            <button onClick={() => scrollToSection('features')} className="text-gray-600 hover:text-gray-900 transition-colors text-left cursor-pointer hover:scale-105">features</button>
+            <button onClick={() => scrollToSection('examples')} className="text-gray-600 hover:text-gray-900 transition-colors text-left cursor-pointer hover:scale-105">examples</button>
+            <button onClick={() => scrollToSection('pricing')} className="text-gray-600 hover:text-gray-900 transition-colors text-left cursor-pointer hover:scale-105">pricing</button>
+            <button onClick={() => scrollToSection('faqs')} className="text-gray-600 hover:text-gray-900 transition-colors text-left cursor-pointer hover:scale-105">faq</button>
             <button 
               onClick={() => scrollToSection('waitlist')}
-              className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium transition-colors w-fit"
+              className="inline-flex items-center gap-2 text-white px-6 py-3 rounded-full text-sm font-semibold transition-all hover:shadow-lg hover:scale-105 cursor-pointer w-fit"
+              style={{ backgroundColor: "var(--brand-primary)" }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
             >
               sign up for waitlist
             </button>
@@ -426,7 +524,7 @@ export default function Home() {
     <main>
       <Navigation />
       {/* Hero */}
-      <section className="min-h-screen flex items-center" style={{ backgroundColor: "var(--bg-section-neutral)" }}>
+      <section id="hero" className="min-h-screen flex items-center" style={{ backgroundColor: "var(--bg-section-neutral)" }}>
         <div className="mx-auto max-w-7xl px-6 py-16 grid lg:grid-cols-2 gap-16 items-center">
           {/* Left Column - Text Content */}
           <div className="space-y-8">
@@ -473,7 +571,7 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={status === "loading"}
-                  className="w-full text-white font-semibold py-3 px-6 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full text-white font-semibold py-3 px-6 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 hover:shadow-lg hover:scale-105 cursor-pointer"
                   style={{ backgroundColor: "var(--brand-primary)" }}
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--brand-primary-hover)'}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
@@ -503,7 +601,7 @@ export default function Home() {
 
           {/* Right Column - Before/After Images */}
           <div className="flex justify-center lg:justify-end">
-            <BeforeAfterSlider />
+            <BeforeAfterSlider priority={true} />
           </div>
         </div>
       </section>
@@ -577,10 +675,12 @@ export default function Home() {
       </section>
 
       {/* Core Features Section */}
-      <CoreFeatures3Up />
+      <div id="features">
+        <CoreFeatures3Up />
+      </div>
 
             {/* Before/After Gallery */}
-            <section className="px-6 py-20" style={{ backgroundColor: "var(--brand-white)" }}>
+            <section id="examples" className="px-6 py-20" style={{ backgroundColor: "var(--brand-white)" }}>
         <div className="mx-auto max-w-7xl">
           {/* Section Header */}
           <div className="text-center mb-16">
@@ -660,8 +760,8 @@ export default function Home() {
               {/* Interactive Before/After Slider */}
               <div className="mb-4">
                 <BeforeAfterSlider 
-                  beforeImage="/images/emptyroom.jpg"
-                  afterImage="/images/stagedroom.png"
+                  beforeImage="/images/emptymasterbed.jpg"
+                  afterImage="/images/stagedmasterbed.png"
                   beforeAlt="Empty bedroom before staging"
                   afterAlt="Staged bedroom after virtual staging"
                   beforeLabel="Empty Room"
@@ -707,8 +807,8 @@ export default function Home() {
               {/* Interactive Before/After Slider */}
               <div className="mb-4">
                 <BeforeAfterSlider 
-                  beforeImage="/images/emptyroom.jpg"
-                  afterImage="/images/stagedroom.png"
+                  beforeImage="/images/emptykitchen.png"
+                  afterImage="/images/stagedkitchen.png"
                   beforeAlt="Empty kitchen before staging"
                   afterAlt="Staged kitchen after virtual staging"
                   beforeLabel="Empty Space"
@@ -754,8 +854,8 @@ export default function Home() {
               {/* Interactive Before/After Slider */}
               <div className="mb-4">
                 <BeforeAfterSlider 
-                  beforeImage="/images/emptyroom.jpg"
-                  afterImage="/images/stagedroom.png"
+                  beforeImage="/images/emptyoffice.jpg"
+                  afterImage="/images/stagedoffice.png"
                   beforeAlt="Empty spare room before staging"
                   afterAlt="Staged home office after virtual staging"
                   beforeLabel="Spare Room"
@@ -896,7 +996,7 @@ export default function Home() {
                     className={`inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-white transition-all hover:shadow-lg ${
                       isUploading 
                         ? 'opacity-75 cursor-not-allowed' 
-                        : 'hover:scale-105'
+                        : 'hover:scale-105 cursor-pointer'
                     }`}
                     style={{ backgroundColor: "var(--brand-primary)" }}
                     disabled={isUploading}
@@ -1296,7 +1396,7 @@ export default function Home() {
                 <div className="flex items-center">
                   <button 
                     onClick={() => setIsYearly(false)}
-                    className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all ${
+                    className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all cursor-pointer hover:scale-105 ${
                       !isYearly 
                         ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md' 
                         : 'text-gray-600 hover:text-gray-900'
@@ -1306,7 +1406,7 @@ export default function Home() {
                   </button>
                   <button 
                     onClick={() => setIsYearly(true)}
-                    className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all ${
+                    className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all cursor-pointer hover:scale-105 ${
                       isYearly 
                         ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md' 
                         : 'text-gray-600 hover:text-gray-900'
@@ -1392,8 +1492,10 @@ export default function Home() {
               
               <button 
                 onClick={() => scrollToSection('waitlist')}
-                className="w-full rounded-lg px-6 py-3 font-semibold text-white transition-all hover:shadow-lg mt-auto" 
+                className="w-full rounded-lg px-6 py-3 font-semibold text-white transition-all hover:shadow-lg hover:scale-105 cursor-pointer mt-auto" 
                 style={{ backgroundColor: "var(--brand-primary)" }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
               >
                 Join Waitlist
               </button>
@@ -1446,7 +1548,10 @@ export default function Home() {
               
               <button 
                 onClick={() => scrollToSection('waitlist')}
-                className="w-full rounded-lg px-6 py-3 font-semibold text-white bg-gradient-to-r from-blue-600 to-purple-600 transition-all hover:shadow-lg mt-auto"
+                className="w-full rounded-lg px-6 py-3 font-semibold text-white transition-all hover:shadow-lg hover:scale-105 cursor-pointer mt-auto"
+                style={{ backgroundColor: "var(--brand-primary)" }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
               >
                 Join Waitlist
               </button>
@@ -1493,8 +1598,10 @@ export default function Home() {
               
               <button 
                 onClick={() => scrollToSection('waitlist')}
-                className="w-full rounded-lg px-6 py-3 font-semibold text-white transition-all hover:shadow-lg mt-auto" 
+                className="w-full rounded-lg px-6 py-3 font-semibold text-white transition-all hover:shadow-lg hover:scale-105 cursor-pointer mt-auto" 
                 style={{ backgroundColor: "var(--brand-primary)" }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
               >
                 Join Waitlist
               </button>
@@ -1811,7 +1918,7 @@ export default function Home() {
               </p>
               <button 
                 onClick={() => scrollToSection('waitlist')}
-                className="inline-flex items-center gap-3 px-8 py-4 rounded-xl font-semibold text-white text-lg transition-all hover:shadow-xl hover:scale-105 duration-300"
+                className="inline-flex items-center gap-3 px-8 py-4 rounded-xl font-semibold text-white text-lg transition-all hover:shadow-xl hover:scale-105 duration-300 cursor-pointer"
                 style={{ background: `linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-hover) 100%)` }}
               >
                 <Users className="w-5 h-5" />
@@ -1850,10 +1957,10 @@ export default function Home() {
             <div>
               <h4 className="font-semibold mb-4">Product</h4>
               <ul className="space-y-3 text-white/70">
-                <li><button onClick={() => scrollToSection('features')} className="hover:text-white transition-colors text-left">Features</button></li>
-                <li><button onClick={() => scrollToSection('pricing')} className="hover:text-white transition-colors text-left">Pricing</button></li>
-                <li><button onClick={() => scrollToSection('faqs')} className="hover:text-white transition-colors text-left">FAQ</button></li>
-                <li><button onClick={() => scrollToSection('about')} className="hover:text-white transition-colors text-left">How It Works</button></li>
+                <li><button onClick={() => scrollToSection('features')} className="hover:text-white transition-colors text-left cursor-pointer hover:scale-105">Features</button></li>
+                <li><button onClick={() => scrollToSection('examples')} className="hover:text-white transition-colors text-left cursor-pointer hover:scale-105">Examples</button></li>
+                <li><button onClick={() => scrollToSection('pricing')} className="hover:text-white transition-colors text-left cursor-pointer hover:scale-105">Pricing</button></li>
+                <li><button onClick={() => scrollToSection('faqs')} className="hover:text-white transition-colors text-left cursor-pointer hover:scale-105">FAQ</button></li>
               </ul>
             </div>
 
@@ -1888,8 +1995,18 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={newsletterStatus === "loading"}
-                  className="px-6 py-3 rounded-lg font-semibold transition-all hover:shadow-lg disabled:opacity-50 flex items-center gap-2"
+                  className="px-6 py-3 rounded-lg font-semibold transition-all hover:shadow-lg hover:scale-105 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                   style={{ backgroundColor: "var(--brand-primary)" }}
+                  onMouseEnter={(e) => {
+                    if (newsletterStatus !== "loading") {
+                      e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (newsletterStatus !== "loading") {
+                      e.currentTarget.style.backgroundColor = "var(--brand-primary)";
+                    }
+                  }}
                 >
                   {newsletterStatus === "loading" ? (
                     <>
@@ -1930,8 +2047,10 @@ export default function Home() {
                 </div>
                 <button 
                   onClick={() => scrollToSection('waitlist')}
-                  className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-semibold transition-all hover:shadow-lg"
+                  className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-semibold transition-all hover:shadow-lg hover:scale-105 cursor-pointer"
                   style={{ backgroundColor: "var(--brand-primary)" }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
                 >
                   <Users className="w-4 h-4" />
                   Join Waitlist
