@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { CheckCircle, Star, Users, Clock, Shield, Camera, Download, Palette, Upload, Home as HomeIcon, Badge } from "lucide-react";
 
 import { ProblemVsSolution, CoreFeatures3Up } from "@/components";
-import { Navigation } from "@/components/Navigation";
+import { ClientNavigation } from "@/components/ClientNavigation";
 import { motion } from "framer-motion";
 
 // Reusable animation variants
@@ -520,7 +520,7 @@ export default function Home() {
 
   return (
     <main>
-      <Navigation />
+      <ClientNavigation />
       {/* Hero */}
       <section id="hero" className="min-h-screen flex items-center" style={{ backgroundColor: "var(--bg-section-neutral)" }}>
         <div className="mx-auto max-w-7xl px-6 py-16 grid lg:grid-cols-2 gap-16 items-center">

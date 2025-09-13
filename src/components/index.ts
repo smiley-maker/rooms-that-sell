@@ -4,6 +4,7 @@ export { default as CostCalculator } from './CostCalculator';
 export { default as ProblemVsSolution } from './ProblemVsSolution';
 export { CoreFeatures3Up } from './CoreFeatures3Up';
 export { Providers } from './providers';
+export { ClientNavigation } from './ClientNavigation';
 
 // Project Management Components
 export { ProjectDashboard } from './ProjectDashboard';
