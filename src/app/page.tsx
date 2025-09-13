@@ -2,6 +2,7 @@
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { CheckCircle, Star, Users, Clock, Shield, Camera, Download, Palette, Upload, Home as HomeIcon, Badge } from "lucide-react";
+import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs";
 import { ProblemVsSolution, CoreFeatures3Up } from "@/components";
 import { motion } from "framer-motion";
 
@@ -375,6 +376,7 @@ function BeforeAfterSlider({
 
 function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { isSignedIn, user } = useUser();
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -410,17 +412,41 @@ function Navigation() {
           <button onClick={() => scrollToSection('faqs')} className="text-gray-600 hover:text-gray-900 transition-colors cursor-pointer hover:scale-105">faq</button>
         </div>
 
-        {/* CTA Button */}
+        {/* Auth Buttons */}
         <div className="flex items-center gap-4">
-          <button 
-            onClick={() => scrollToSection('waitlist')}
-            className="hidden md:inline-flex items-center gap-2 text-white px-6 py-3 rounded-full text-sm font-semibold transition-all hover:shadow-lg hover:scale-105 cursor-pointer"
-            style={{ backgroundColor: "var(--brand-primary)" }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
-          >
-            sign up for waitlist
-          </button>
+          {isSignedIn ? (
+            <div className="hidden md:flex items-center gap-3">
+              <span className="text-sm text-gray-600">
+                Welcome, {user?.firstName || user?.emailAddresses[0]?.emailAddress}!
+              </span>
+              <UserButton 
+                afterSignOutUrl="/"
+                appearance={{
+                  elements: {
+                    avatarBox: "w-8 h-8"
+                  }
+                }}
+              />
+            </div>
+          ) : (
+            <div className="hidden md:flex items-center gap-3">
+              <SignInButton mode="modal">
+                <button className="text-gray-600 hover:text-gray-900 transition-colors cursor-pointer hover:scale-105 px-4 py-2">
+                  sign in
+                </button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button 
+                  className="inline-flex items-center gap-2 text-white px-6 py-3 rounded-full text-sm font-semibold transition-all hover:shadow-lg hover:scale-105 cursor-pointer"
+                  style={{ backgroundColor: "var(--brand-primary)" }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
+                >
+                  get started
+                </button>
+              </SignUpButton>
+            </div>
+          )}
           
           {/* Mobile Menu Button */}
           <button 
@@ -444,15 +470,40 @@ function Navigation() {
             <button onClick={() => scrollToSection('examples')} className="text-gray-600 hover:text-gray-900 transition-colors text-left cursor-pointer hover:scale-105">examples</button>
             <button onClick={() => scrollToSection('pricing')} className="text-gray-600 hover:text-gray-900 transition-colors text-left cursor-pointer hover:scale-105">pricing</button>
             <button onClick={() => scrollToSection('faqs')} className="text-gray-600 hover:text-gray-900 transition-colors text-left cursor-pointer hover:scale-105">faq</button>
-            <button 
-              onClick={() => scrollToSection('waitlist')}
-              className="inline-flex items-center gap-2 text-white px-6 py-3 rounded-full text-sm font-semibold transition-all hover:shadow-lg hover:scale-105 cursor-pointer w-fit"
-              style={{ backgroundColor: "var(--brand-primary)" }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
-            >
-              sign up for waitlist
-            </button>
+            
+            {isSignedIn ? (
+              <div className="flex items-center gap-3 pt-2">
+                <span className="text-sm text-gray-600">
+                  Welcome, {user?.firstName || user?.emailAddresses[0]?.emailAddress}!
+                </span>
+                <UserButton 
+                  afterSignOutUrl="/"
+                  appearance={{
+                    elements: {
+                      avatarBox: "w-8 h-8"
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 pt-2">
+                <SignInButton mode="modal">
+                  <button className="text-gray-600 hover:text-gray-900 transition-colors text-left cursor-pointer hover:scale-105">
+                    sign in
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button 
+                    className="inline-flex items-center gap-2 text-white px-6 py-3 rounded-full text-sm font-semibold transition-all hover:shadow-lg hover:scale-105 cursor-pointer w-fit"
+                    style={{ backgroundColor: "var(--brand-primary)" }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary-hover)"}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--brand-primary)"}
+                  >
+                    get started
+                  </button>
+                </SignUpButton>
+              </div>
+            )}
           </div>
         </div>
       )}
