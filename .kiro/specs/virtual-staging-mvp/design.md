@@ -17,23 +17,23 @@ graph TB
         B[React Components]
         C[Tailwind UI]
     end
-    
+
     subgraph "Authentication"
         D[Clerk Auth]
     end
-    
+
     subgraph "Backend Services"
         E[Convex Database]
         F[Convex Functions]
         G[Stripe Integration]
     end
-    
+
     subgraph "External Services"
         H[Cloudflare R2]
         I[Gemini 2.5 Flash]
         J[Stripe API]
     end
-    
+
     A --> D
     A --> F
     F --> E
@@ -66,29 +66,34 @@ graph TB
 ### Core Components
 
 #### 1. Authentication System
+
 - **ClerkProvider**: Wraps the application for authentication context
 - **SignIn/SignUp Components**: Custom forms with plan selection integration
 - **ProtectedRoute**: HOC for authenticated route protection
 - **UserProfile**: Account management and subscription details
 
 #### 2. Project Management
+
 - **ProjectDashboard**: Grid view of all user projects with status indicators
 - **ProjectCreator**: Form for creating new projects with property details
 - **ProjectSettings**: Edit project metadata and manage project lifecycle
 
 #### 3. Image Management
+
 - **ImageUploader**: Drag-and-drop interface with progress tracking
 - **RoomTypeDetector**: AI-powered room classification with user override
 - **ImageGallery**: Grid view of uploaded images with metadata
 - **ImageViewer**: Detailed view with before/after comparison as slider
 
 #### 4. AI Staging Engine
+
 - **StyleSelector**: Interface for choosing staging styles and palettes
 - **BatchProcessor**: Queue management for multiple image processing
 - **StagingPreview**: Real-time preview of staging progress
 - **ResultsReview**: Before/after comparison with approval workflow
 
 #### 5. Export System
+
 - **ExportManager**: Batch export with format and resolution options
 - **WatermarkEngine**: Automatic "Virtually Staged" watermark application
 - **DownloadCenter**: Organized file delivery with proper naming
@@ -101,18 +106,22 @@ graph TB
 // User Management
 export const createUser = mutation({
   args: { clerkId: v.string(), email: v.string(), plan: v.string() },
-  handler: async (ctx, args) => { /* Implementation */ }
+  handler: async (ctx, args) => {
+    /* Implementation */
+  },
 });
 
-// Project Management  
+// Project Management
 export const createProject = mutation({
-  args: { 
+  args: {
     userId: v.id("users"),
     address: v.string(),
     listingType: v.string(),
-    notes: v.optional(v.string())
+    notes: v.optional(v.string()),
   },
-  handler: async (ctx, args) => { /* Implementation */ }
+  handler: async (ctx, args) => {
+    /* Implementation */
+  },
 });
 
 // Image Processing
@@ -121,9 +130,11 @@ export const uploadImage = mutation({
     projectId: v.id("projects"),
     imageUrl: v.string(),
     roomType: v.string(),
-    metadata: v.object({})
+    metadata: v.object({}),
   },
-  handler: async (ctx, args) => { /* Implementation */ }
+  handler: async (ctx, args) => {
+    /* Implementation */
+  },
 });
 
 // AI Staging
@@ -131,9 +142,11 @@ export const stageImages = mutation({
   args: {
     imageIds: v.array(v.id("images")),
     stylePreset: v.string(),
-    customPrompt: v.optional(v.string())
+    customPrompt: v.optional(v.string()),
   },
-  handler: async (ctx, args) => { /* Implementation */ }
+  handler: async (ctx, args) => {
+    /* Implementation */
+  },
 });
 ```
 
@@ -225,12 +238,16 @@ export default defineSchema({
     stylePreset: v.string(),
     customPrompt: v.optional(v.string()),
     status: v.string(), // "queued", "processing", "completed", "failed"
-    results: v.optional(v.array(v.object({
-      imageId: v.id("images"),
-      stagedUrl: v.string(),
-      success: v.boolean(),
-      error: v.optional(v.string()),
-    }))),
+    results: v.optional(
+      v.array(
+        v.object({
+          imageId: v.id("images"),
+          stagedUrl: v.string(),
+          success: v.boolean(),
+          error: v.optional(v.string()),
+        })
+      )
+    ),
     creditsUsed: v.number(),
     createdAt: v.number(),
     completedAt: v.optional(v.number()),
@@ -267,18 +284,36 @@ export default defineSchema({
 
 ### File Storage Structure (Cloudflare R2)
 
+#### Two-Bucket Architecture
+
+**Bucket 1: `rts-originals` (Original Images)**
+
 ```
 /users/{userId}/
   /projects/{projectId}/
-    /original/
-      /{imageId}.{ext}
-    /staged/
-      /{imageId}_staged.{ext}
-    /exports/
-      /{timestamp}/
-        /staged/
-        /original/
+    /{imageId}.{ext}
+    /{imageId}_metadata.json
 ```
+
+**Bucket 2: `rts-staged` (AI-Staged Images)**
+
+```
+/users/{userId}/
+  /projects/{projectId}/
+    /{imageId}_staged.{ext}
+    /{imageId}_staged_metadata.json
+  /exports/{timestamp}/
+    /{imageId}_staged_export.{ext}
+    /batch_export_{timestamp}.zip
+```
+
+#### Benefits of Two-Bucket Approach
+
+- **Security**: Separate access controls for originals vs staged images
+- **Performance**: Optimized CDN settings per bucket type
+- **Cost Management**: Different storage classes and lifecycle policies
+- **Backup Strategy**: Independent backup schedules for each bucket
+- **Compliance**: Easier to manage data retention policies separately
 
 ## Error Handling
 
@@ -314,7 +349,7 @@ class ErrorHandler {
   static handle(error: AppError): ErrorResponse {
     // Log error for monitoring
     console.error(`[${error.code}] ${error.message}`, error.context);
-    
+
     // Return user-friendly response
     return {
       success: false,
@@ -322,7 +357,7 @@ class ErrorHandler {
         code: error.code,
         message: error.userMessage,
         retryable: error.retryable,
-      }
+      },
     };
   }
 }
@@ -338,21 +373,25 @@ class ErrorHandler {
 ## Testing Strategy
 
 ### Unit Testing
+
 - **Components**: React Testing Library for UI components
 - **Functions**: Vitest for Convex functions and utilities
 - **API Integration**: Mock external services for isolated testing
 
 ### Integration Testing
+
 - **Database Operations**: Test Convex schema and queries
 - **File Upload Flow**: End-to-end upload to R2 storage
 - **AI Processing**: Mock Gemini responses for consistent testing
 
 ### End-to-End Testing
+
 - **User Workflows**: Playwright for critical user journeys
 - **Payment Integration**: Stripe test mode for subscription flows
 - **Image Processing**: Full pipeline testing with sample images
 
 ### Performance Testing
+
 - **Image Upload**: Large file and batch upload scenarios
 - **AI Processing**: Concurrent staging job handling
 - **Database Queries**: Query optimization and indexing validation
@@ -363,13 +402,13 @@ class ErrorHandler {
 // vitest.config.ts
 export default defineConfig({
   test: {
-    environment: 'jsdom',
-    setupFiles: ['./vitest.setup.ts'],
+    environment: "jsdom",
+    setupFiles: ["./vitest.setup.ts"],
     coverage: {
-      reporter: ['text', 'html', 'clover'],
-      exclude: ['node_modules/', 'convex/_generated/']
-    }
-  }
+      reporter: ["text", "html", "clover"],
+      exclude: ["node_modules/", "convex/_generated/"],
+    },
+  },
 });
 
 // Mock configurations
@@ -381,31 +420,35 @@ const mockConvex = {
 
 const mockGemini = {
   stageImage: vi.fn().mockResolvedValue({
-    stagedImageUrl: 'https://example.com/staged.jpg',
+    stagedImageUrl: "https://example.com/staged.jpg",
     confidence: 0.95,
-    processingTime: 2500
-  })
+    processingTime: 2500,
+  }),
 };
 ```
 
 ## Security Considerations
 
 ### Authentication & Authorization
+
 - Clerk handles secure authentication with JWT tokens
 - Row-level security in Convex based on user ownership
 - API rate limiting to prevent abuse
 
 ### Data Protection
+
 - All images stored in private R2 buckets with signed URLs
 - Temporary URLs with expiration for secure access
 - No sensitive data in client-side code
 
 ### API Security
+
 - Gemini API keys stored securely in Convex environment
 - Input validation and sanitization for all user inputs
 - CORS configuration for allowed origins only
 
 ### Privacy Compliance
+
 - User data deletion capabilities for GDPR compliance
 - Audit logs for data access and modifications
 - Clear data retention policies for images and metadata

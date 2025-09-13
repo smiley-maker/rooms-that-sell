@@ -13,6 +13,8 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as images from "../images.js";
+import type * as projects from "../projects.js";
 import type * as users from "../users.js";
 import type * as waitlist from "../waitlist.js";
 
@@ -25,6 +27,8 @@ import type * as waitlist from "../waitlist.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  images: typeof images;
+  projects: typeof projects;
   users: typeof users;
   waitlist: typeof waitlist;
 }>;

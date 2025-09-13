@@ -6,14 +6,14 @@
   - Create basic user profile management functions
   - _Requirements: 1.1, 1.3, 1.4, 1.5_
 
-- [ ] 2. Implement project management system
+- [x] 2. Implement project management system
   - Create project CRUD operations in Convex
   - Build ProjectDashboard component with grid view of projects
   - Implement ProjectCreator form for new project creation
   - Add project status management and basic project settings
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 3. Set up Cloudflare R2 integration and image upload system
+- [x] 3. Set up Cloudflare R2 integration and image upload system
   - Configure Cloudflare R2 client and signed URL generation
   - Create image upload Convex functions with R2 storage
   - Build ImageUploader component with drag-and-drop interface

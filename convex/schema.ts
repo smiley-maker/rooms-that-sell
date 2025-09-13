@@ -41,6 +41,8 @@ export default defineSchema({
     userId: v.id("users"),
     originalUrl: v.string(), // Cloudflare R2 URL for the stored image
     stagedUrl: v.optional(v.string()), // Cloudflare R2 URL for the staged version
+    imageKey: v.optional(v.string()), // R2 storage key for the original image
+    stagedKey: v.optional(v.string()), // R2 storage key for the staged version
     roomType: v.string(),
     filename: v.string(), // Original filename from user upload
     fileSize: v.number(),

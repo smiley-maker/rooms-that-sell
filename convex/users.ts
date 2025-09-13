@@ -170,6 +170,22 @@ export const addCredits = mutation({
   },
 });
 
+// Get current authenticated user
+export const getCurrentUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    return await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+  },
+});
+
 // Get user's credit transaction history
 export const getCreditHistory = query({
   args: { userId: v.id("users") },

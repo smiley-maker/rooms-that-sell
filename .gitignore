@@ -43,3 +43,7 @@ next-env.d.ts
 # cursor
 .cursorignore
 .cursorrules
+
+# Kiro
+# not committing docs for now until I have a chance to review them
+docs/
