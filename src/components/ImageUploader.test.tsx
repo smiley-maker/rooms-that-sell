@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { ImageUploader } from './ImageUploader';
 import { ConvexProvider } from 'convex/react';
 import { ConvexReactClient } from 'convex/react';
+import { Id } from '../../convex/_generated/dataModel';
 
 // Mock Convex client
 const mockConvex = new ConvexReactClient('https://test.convex.cloud');
@@ -19,7 +20,7 @@ vi.mock('convex/react', async () => {
 
 
 describe('ImageUploader', () => {
-  const mockProjectId = 'test-project-id' as string;
+  const mockProjectId = 'test-project-id' as Id<"projects">;
   const mockOnUploadComplete = vi.fn();
 
   beforeEach(() => {

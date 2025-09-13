@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { ProjectImageManager } from './ProjectImageManager';
 import { ConvexProvider } from 'convex/react';
 import { ConvexReactClient } from 'convex/react';
+import { Id } from '../../convex/_generated/dataModel';
 
 // Mock Convex client
 const mockConvex = new ConvexReactClient('https://test.convex.cloud');
@@ -28,7 +29,7 @@ vi.mock('sonner', () => ({
 }));
 
 describe('ProjectImageManager', () => {
-  const mockProjectId = 'test-project-id' as string;
+  const mockProjectId = 'test-project-id' as Id<"projects">;
 
   const renderProjectImageManager = () => {
     return render(

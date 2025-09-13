@@ -3,6 +3,7 @@ import { render } from '@testing-library/react';
 import { ImageDisplay } from './ImageDisplay';
 import { ConvexProvider } from 'convex/react';
 import { ConvexReactClient } from 'convex/react';
+import { Id } from '../../convex/_generated/dataModel';
 
 // Mock Convex client
 const mockConvex = new ConvexReactClient('https://test.convex.cloud');
@@ -17,7 +18,7 @@ vi.mock('convex/react', async () => {
 });
 
 describe('ImageDisplay', () => {
-  const mockImageId = 'test-image-id' as string;
+  const mockImageId = 'test-image-id' as Id<"images">;
 
   const renderImageDisplay = (props = {}) => {
     return render(

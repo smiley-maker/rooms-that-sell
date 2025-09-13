@@ -56,13 +56,13 @@ export const generateImageUploadUrl = action({
     }
 
     // Get user from database
-    const user: any = await ctx.runQuery(api.users.getCurrentUser);
+    const user = await ctx.runQuery(api.users.getCurrentUser);
     if (!user) {
       throw new Error("User not found");
     }
 
     // Verify project ownership
-    const project: any = await ctx.runQuery(api.projects.getProject, { projectId: args.projectId });
+    const project = await ctx.runQuery(api.projects.getProject, { projectId: args.projectId });
     if (!project || project.userId !== user._id) {
       throw new Error("Project not found or access denied");
     }
@@ -101,7 +101,7 @@ export const generateImageUploadUrl = action({
         },
       });
 
-      const command: any = new PutObjectCommand({
+      const command = new PutObjectCommand({
         Bucket: process.env.R2_BUCKET_OG!,
         Key: imageKey,
         ContentType: args.contentType,
@@ -247,19 +247,19 @@ export const getImageDownloadUrl = action({
       throw new Error("Not authenticated");
     }
 
-    const user: any = await ctx.runQuery(api.users.getCurrentUser);
+    const user = await ctx.runQuery(api.users.getCurrentUser);
     if (!user) {
       throw new Error("User not found");
     }
 
     // Get image record
-    const image: any = await ctx.runQuery(api.images.getImageById, { imageId: args.imageId });
+    const image = await ctx.runQuery(api.images.getImageById, { imageId: args.imageId });
     if (!image) {
       throw new Error("Image not found");
     }
 
     // Verify ownership through project
-    const project: any = await ctx.runQuery(api.projects.getProject, { projectId: image.projectId });
+    const project = await ctx.runQuery(api.projects.getProject, { projectId: image.projectId });
     if (!project || project.userId !== user._id) {
       throw new Error("Access denied");
     }
@@ -276,8 +276,8 @@ export const getImageDownloadUrl = action({
       bucket = process.env.R2_BUCKET_OG!;
     } else {
       // Fallback: extract key from URL for older records
-      const url: string = args.isStaged && image.stagedUrl ? image.stagedUrl : image.originalUrl;
-      const urlParts: string[] = url.split('/');
+      const url = args.isStaged && image.stagedUrl ? image.stagedUrl : image.originalUrl;
+      const urlParts = url.split('/');
       bucket = urlParts[3]; // bucket name from URL
       key = urlParts.slice(4).join('/'); // Everything after bucket
     }
@@ -295,12 +295,12 @@ export const getImageDownloadUrl = action({
         },
       });
 
-      const command: any = new GetObjectCommand({
+      const command = new GetObjectCommand({
         Bucket: bucket,
         Key: key,
       });
 
-      const downloadUrl: string = await getSignedUrl(r2Client, command, { 
+      const downloadUrl = await getSignedUrl(r2Client, command, { 
         expiresIn: 3600 // 1 hour
       });
 
