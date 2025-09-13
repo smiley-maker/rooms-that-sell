@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://roomsthatsell.com'),
   title: "RoomsThatSell – Fast, MLS-Compliant Virtual Staging for Real Estate Agents",
   description: "Transform empty rooms into stunning staged photos in minutes. MLS-compliant virtual staging starting at $0.29/image. Save $500+ per listing vs traditional staging. Join 1000+ agents already on our waitlist.",
   keywords: "virtual staging, real estate staging, MLS compliant staging, home staging software, real estate marketing, property staging, virtual home staging, real estate agents, home staging cost",
