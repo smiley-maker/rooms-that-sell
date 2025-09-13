@@ -55,6 +55,8 @@ export default defineSchema({
       detectedFeatures: v.optional(v.array(v.string())),
       confidence: v.optional(v.number()),
       processingTime: v.optional(v.number()),
+      stylePreset: v.optional(v.string()),
+      aiModel: v.optional(v.string()),
     }),
     createdAt: v.number(),
     updatedAt: v.number(),

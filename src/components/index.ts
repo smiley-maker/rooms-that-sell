@@ -14,3 +14,9 @@ export { ProjectSettings } from './ProjectSettings';
 export { ImageUploader } from './ImageUploader';
 export { ProjectImageManager } from './ProjectImageManager';
 export { ImageDisplay } from './ImageDisplay';
+
+// Batch Processing Components
+export { BatchProcessor } from './BatchProcessor';
+export { BatchSelector } from './BatchSelector';
+export { StylePalette } from './StylePalette';
+export { StagingProgress } from './StagingProgress';

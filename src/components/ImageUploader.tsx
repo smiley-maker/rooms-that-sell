@@ -76,18 +76,30 @@ export function ImageUploader({
     });
   };
 
-  // Detect room type from filename
+  // Import the intelligent room type detection
   const detectRoomType = (filename: string): string => {
+    // This is a simplified version for the uploader
+    // The full detection logic is in the Convex function
     const name = filename.toLowerCase();
     
-    if (name.includes("kitchen")) return "kitchen";
-    if (name.includes("living") || name.includes("family")) return "living_room";
-    if (name.includes("bedroom") || name.includes("master")) return "bedroom";
-    if (name.includes("bathroom") || name.includes("bath")) return "bathroom";
-    if (name.includes("dining")) return "dining_room";
-    if (name.includes("office") || name.includes("study")) return "office";
-    if (name.includes("basement")) return "basement";
-    if (name.includes("garage")) return "garage";
+    // Enhanced pattern matching
+    if (/kitchen|kit\b|cooking|culinary/i.test(name)) return "kitchen";
+    if (/master[\s_-]?bedroom|master[\s_-]?bed|mbr|primary[\s_-]?bedroom/i.test(name)) return "master_bedroom";
+    if (/bedroom|bed[\s_-]?room|br\d*|\bbr\b/i.test(name)) return "bedroom";
+    if (/living[\s_-]?room|living|lounge|sitting[\s_-]?room|great[\s_-]?room|lr\b/i.test(name)) return "living_room";
+    if (/family[\s_-]?room|family|rec[\s_-]?room|recreation|game[\s_-]?room/i.test(name)) return "family_room";
+    if (/bathroom|bath[\s_-]?room|\bbath\b|\bba\b|washroom|restroom/i.test(name)) return "bathroom";
+    if (/powder[\s_-]?room|half[\s_-]?bath|guest[\s_-]?bath/i.test(name)) return "powder_room";
+    if (/dining[\s_-]?room|dining|\bdr\b|breakfast[\s_-]?nook/i.test(name)) return "dining_room";
+    if (/office|study|den|library|work[\s_-]?room|home[\s_-]?office/i.test(name)) return "office";
+    if (/guest[\s_-]?room|guest[\s_-]?bed|spare[\s_-]?room|spare[\s_-]?bed/i.test(name)) return "guest_room";
+    if (/walk[\s_-]?in[\s_-]?closet|closet|wardrobe|dressing[\s_-]?room/i.test(name)) return "walk_in_closet";
+    if (/laundry|wash[\s_-]?room|utility[\s_-]?room|mud[\s_-]?room/i.test(name)) return "laundry_room";
+    if (/basement|cellar|lower[\s_-]?level|downstairs/i.test(name)) return "basement";
+    if (/garage|car[\s_-]?port|parking/i.test(name)) return "garage";
+    if (/foyer|entry[\s_-]?way|entrance|front[\s_-]?hall|vestibule/i.test(name)) return "foyer";
+    if (/pantry|storage|food[\s_-]?storage/i.test(name)) return "pantry";
+    if (/balcony|patio|deck|terrace|outdoor|veranda/i.test(name)) return "balcony";
     
     return "unknown";
   };

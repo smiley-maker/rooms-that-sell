@@ -186,6 +186,19 @@ export const getCurrentUser = query({
   },
 });
 
+// Update user credits directly
+export const updateUserCredits = mutation({
+  args: {
+    userId: v.id("users"),
+    credits: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      credits: args.credits,
+    });
+  },
+});
+
 // Get user's credit transaction history
 export const getCreditHistory = query({
   args: { userId: v.id("users") },

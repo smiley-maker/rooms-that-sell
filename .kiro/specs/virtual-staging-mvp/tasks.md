@@ -20,21 +20,21 @@
   - Implement upload progress tracking and error handling
   - _Requirements: 3.1, 3.2, 3.3, 3.7_
 
-- [ ] 4. Implement intelligent room type detection
+- [x] 4. Implement intelligent room type detection
   - Create filename parsing logic for room type hints
   - Build AI heuristics for structural feature detection
   - Implement fallback suggestion system with user override
   - Add room type tagging interface to uploaded images
   - _Requirements: 3.4, 3.5, 3.6_
 
-- [ ] 5. Integrate Gemini 2.5 Flash Image API for AI staging
+- [x] 5. Integrate Gemini 2.5 Flash Image API for AI staging
   - Set up Gemini API client and authentication
   - Create staging job queue system in Convex
   - Implement AI staging functions with style preset support
   - Add error handling and retry logic for AI processing
   - _Requirements: 4.1, 4.3, 4.7_
 
-- [ ] 6. Build batch processing and style consistency system
+- [x] 6. Build batch processing and style consistency system
   - Create batch selection interface for multiple images
   - Implement style palette options (Minimal, Scandinavian, Bohemian, Modern, Traditional)
   - Add consistent styling across selected images in a batch
