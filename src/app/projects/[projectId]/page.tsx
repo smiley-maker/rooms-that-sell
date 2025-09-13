@@ -69,7 +69,7 @@ export default function ProjectDetailPage() {
 
   if (project === undefined || images === undefined) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="animate-pulse space-y-6">
           <div className="flex items-center gap-4">
             <div className="w-8 h-8 bg-gray-200 rounded"></div>
@@ -84,7 +84,7 @@ export default function ProjectDetailPage() {
 
   if (!project) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center py-12">
           <h1 className="text-2xl font-bold mb-4">Project Not Found</h1>
           <p className="text-muted-foreground mb-4">
@@ -103,7 +103,7 @@ export default function ProjectDetailPage() {
   const uploadedImages = images.filter(img => img.status === "uploaded");
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button 

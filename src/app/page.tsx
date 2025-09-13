@@ -2,10 +2,13 @@
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { CheckCircle, Star, Users, Clock, Shield, Camera, Download, Palette, Upload, Home as HomeIcon, Badge } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { ProblemVsSolution, CoreFeatures3Up } from "@/components";
 import { ClientNavigation } from "@/components/ClientNavigation";
 import { motion } from "framer-motion";
+import { Suspense } from "react";
 
 // Reusable animation variants
 const fadeInUp = {
@@ -375,12 +378,61 @@ function BeforeAfterSlider({
   );
 }
 
-export default function Home() {
+function HomeContent() {
+  const { isSignedIn, isLoaded } = useUser();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [listings, setListings] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
   const [isYearly, setIsYearly] = useState(false);
+
+  // Batch Upload Demo State
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [completedFiles, setCompletedFiles] = useState(0);
+  const [fileStatuses, setFileStatuses] = useState<Record<number, 'queued' | 'processing' | 'complete'>>({});
+
+  // Newsletter state
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [newsletterMessage, setNewsletterMessage] = useState("");
+
+  // Redirect authenticated users to dashboard (unless they explicitly want to view landing page)
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      // Check if user explicitly wants to view the landing page
+      const viewLanding = searchParams.get('view') === 'landing';
+      if (!viewLanding) {
+        router.push('/projects');
+      }
+    }
+  }, [isLoaded, isSignedIn, router, searchParams]);
+
+  // Show loading state while checking authentication
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render landing page if user is signed in (prevents flash) unless they explicitly want to view it
+  if (isSignedIn && searchParams.get('view') !== 'landing') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Pricing logic - 2 months free when paid yearly (10/12 of annual price)
   const pricingPlans = {
@@ -406,18 +458,6 @@ export default function Home() {
       perImage: isYearly ? (129 * 10) / 12 / 800 : 129 / 800
     }
   };
-
-
-  // Batch Upload Demo State
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [completedFiles, setCompletedFiles] = useState(0);
-  const [fileStatuses, setFileStatuses] = useState<Record<number, 'queued' | 'processing' | 'complete'>>({});
-
-  // Newsletter state
-  const [newsletterEmail, setNewsletterEmail] = useState("");
-  const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [newsletterMessage, setNewsletterMessage] = useState("");
 
   // Batch Upload Animation Function
   const startBatchUploadDemo = () => {
@@ -2551,5 +2591,20 @@ export default function Home() {
         </div>
       </footer>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }
