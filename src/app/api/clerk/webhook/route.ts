@@ -4,7 +4,14 @@ import { WebhookEvent } from "@clerk/nextjs/server";
 import { api } from "../../../../../convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
 
-const convex = new ConvexHttpClient(process.env.CONVEX_URL!);
+// Create Convex client lazily to avoid build-time issues
+function getConvexClient() {
+  const convexUrl = process.env.CONVEX_URL;
+  if (!convexUrl) {
+    throw new Error("CONVEX_URL environment variable is not set");
+  }
+  return new ConvexHttpClient(convexUrl);
+}
 
 export async function POST(req: Request) {
   // Get the headers
@@ -56,6 +63,7 @@ export async function POST(req: Request) {
     }
 
     try {
+      const convex = getConvexClient();
       // Create user in Convex database
       await convex.mutation(api.users.createUser, {
         clerkId: id,
@@ -81,6 +89,7 @@ export async function POST(req: Request) {
     }
 
     try {
+      const convex = getConvexClient();
       // Update user's last active time
       await convex.mutation(api.users.updateLastActive, {
         clerkId: id,
