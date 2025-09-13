@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { ImageUploader } from './ImageUploader';
 import { ConvexProvider } from 'convex/react';
 import { ConvexReactClient } from 'convex/react';
@@ -16,15 +16,10 @@ vi.mock('convex/react', async () => {
   };
 });
 
-// Mock file validation
-const createMockFile = (name: string, size: number, type: string): File => {
-  const file = new File([''], name, { type });
-  Object.defineProperty(file, 'size', { value: size });
-  return file;
-};
+
 
 describe('ImageUploader', () => {
-  const mockProjectId = 'test-project-id' as any;
+  const mockProjectId = 'test-project-id' as string;
   const mockOnUploadComplete = vi.fn();
 
   beforeEach(() => {
@@ -60,9 +55,6 @@ describe('ImageUploader', () => {
 
   it('shows file size limit error for large files', () => {
     renderImageUploader();
-    
-    // Create oversized file (15MB)
-    const largeFile = createMockFile('large.jpg', 15 * 1024 * 1024, 'image/jpeg');
     
     // The validation would happen in the component
     // This test verifies the error handling structure is in place

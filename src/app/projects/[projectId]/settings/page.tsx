@@ -47,7 +47,7 @@ export default function ProjectSettingsPage() {
         <div className="text-center py-12">
           <h1 className="text-2xl font-bold mb-4">Project Not Found</h1>
           <p className="text-muted-foreground mb-4">
-            The project you're looking for doesn't exist or you don't have access to it.
+            The project you&apos;re looking for doesn&apos;t exist or you don&apos;t have access to it.
           </p>
           <Button onClick={() => router.push("/projects")}>
             <ArrowLeft className="w-4 h-4 mr-2" />

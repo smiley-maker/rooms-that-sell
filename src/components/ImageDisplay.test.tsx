@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { ImageDisplay } from './ImageDisplay';
 import { ConvexProvider } from 'convex/react';
 import { ConvexReactClient } from 'convex/react';
@@ -17,7 +17,7 @@ vi.mock('convex/react', async () => {
 });
 
 describe('ImageDisplay', () => {
-  const mockImageId = 'test-image-id' as any;
+  const mockImageId = 'test-image-id' as string;
 
   const renderImageDisplay = (props = {}) => {
     return render(

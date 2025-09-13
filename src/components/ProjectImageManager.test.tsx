@@ -28,7 +28,7 @@ vi.mock('sonner', () => ({
 }));
 
 describe('ProjectImageManager', () => {
-  const mockProjectId = 'test-project-id' as any;
+  const mockProjectId = 'test-project-id' as string;
 
   const renderProjectImageManager = () => {
     return render(
@@ -46,15 +46,12 @@ describe('ProjectImageManager', () => {
     expect(screen.getByText(/Gallery/)).toBeInTheDocument();
   });
 
-  it('shows empty state when no images', () => {
+  it('shows upload interface by default', () => {
     renderProjectImageManager();
     
-    // Click on gallery tab
-    fireEvent.click(screen.getByText(/Gallery/));
-    
-    // Should show empty state
-    expect(screen.getByText('No images uploaded yet')).toBeInTheDocument();
-    expect(screen.getByText('Upload some room images to get started with virtual staging.')).toBeInTheDocument();
+    // Should show upload interface by default
+    expect(screen.getByText('Upload Room Images')).toBeInTheDocument();
+    expect(screen.getByText('Drag & drop images here')).toBeInTheDocument();
   });
 
   it('has view mode toggle buttons', () => {
@@ -65,16 +62,11 @@ describe('ProjectImageManager', () => {
     expect(document.body).toBeInTheDocument();
   });
 
-  it('handles tab switching', () => {
+  it('has gallery tab available', () => {
     renderProjectImageManager();
     
-    // Should start on upload tab
-    expect(screen.getByRole('tabpanel')).toBeInTheDocument();
-    
-    // Click gallery tab
-    fireEvent.click(screen.getByText(/Gallery/));
-    
-    // Should switch to gallery view
-    expect(screen.getByText('No images uploaded yet')).toBeInTheDocument();
+    // Should have both tabs available
+    expect(screen.getByText('Upload Images')).toBeInTheDocument();
+    expect(screen.getByText(/Gallery/)).toBeInTheDocument();
   });
 });

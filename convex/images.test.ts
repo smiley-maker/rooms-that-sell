@@ -38,21 +38,18 @@ describe("Image upload functions", () => {
   });
 
   it("should generate unique image keys", async () => {
-    const generateImageKey = (userId: string, projectId: string, filename: string, isStaged = false): string => {
-      const timestamp = Date.now();
+    const generateImageKey = (userId: string, projectId: string, filename: string, isStaged = false, timestamp?: number): string => {
+      const ts = timestamp || Date.now();
       const extension = filename.split('.').pop();
       const baseName = filename.replace(/\.[^/.]+$/, ""); // Remove extension
       const suffix = isStaged ? '_staged' : '';
       
-      return `users/${userId}/projects/${projectId}/${timestamp}_${baseName}${suffix}.${extension}`;
+      return `users/${userId}/projects/${projectId}/${ts}_${baseName}${suffix}.${extension}`;
     };
 
-    const key1 = generateImageKey("user1", "project1", "test.jpg");
-    
-    // Wait a millisecond to ensure different timestamp
-    await new Promise(resolve => setTimeout(resolve, 1));
-    
-    const key2 = generateImageKey("user1", "project1", "test.jpg");
+    // Use different timestamps to ensure uniqueness
+    const key1 = generateImageKey("user1", "project1", "test.jpg", false, 1000);
+    const key2 = generateImageKey("user1", "project1", "test.jpg", false, 2000);
     
     // Keys should be different due to timestamp
     expect(key1).not.toEqual(key2);
@@ -61,7 +58,7 @@ describe("Image upload functions", () => {
     expect(key1).toMatch(/^users\/user1\/projects\/project1\/\d+_test\.jpg$/);
     
     // Staged version should have suffix
-    const stagedKey = generateImageKey("user1", "project1", "test.jpg", true);
+    const stagedKey = generateImageKey("user1", "project1", "test.jpg", true, 3000);
     expect(stagedKey).toMatch(/^users\/user1\/projects\/project1\/\d+_test_staged\.jpg$/);
   });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -82,9 +83,10 @@ export function ImageDisplay({
   }
 
   return (
-    <img
+    <Image
       src={imageUrl}
       alt={alt}
+      fill
       className={`object-cover ${className}`}
       onError={() => {
         setError("Image failed to load");

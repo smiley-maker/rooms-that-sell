@@ -22,7 +22,6 @@ export async function POST(req: Request) {
 
   // Get the body
   const payload = await req.text();
-  const body = JSON.parse(payload);
 
   // Create a new Svix instance with your secret.
   const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET || "");
@@ -47,7 +46,7 @@ export async function POST(req: Request) {
   const eventType = evt.type;
 
   if (eventType === "user.created") {
-    const { id, email_addresses, first_name, last_name } = evt.data;
+    const { id, email_addresses } = evt.data;
     
     const email = email_addresses[0]?.email_address;
     

@@ -442,7 +442,7 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Image</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{deleteImageId && images?.find(img => img._id === deleteImageId)?.filename}"? 
+              Are you sure you want to delete &quot;{deleteImageId && images?.find(img => img._id === deleteImageId)?.filename}&quot;? 
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
