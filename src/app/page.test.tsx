@@ -1,6 +1,5 @@
 import { render, screen } from "@testing-library/react";
 import { vi } from "vitest";
-import { ClerkProvider } from "@clerk/nextjs";
 import { ConvexProvider } from "convex/react";
 import { ConvexReactClient } from "convex/react";
 import Home from "./page";
@@ -19,17 +18,29 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+// Mock Clerk authentication
+vi.mock('@clerk/nextjs', async () => {
+  const actual = await vi.importActual('@clerk/nextjs');
+  return {
+    ...actual,
+    useUser: () => ({
+      isSignedIn: false,
+      isLoaded: true,
+      user: null,
+    }),
+    ClerkProvider: ({ children }: { children: React.ReactNode }) => children,
+  };
+});
+
 // Mock Convex client
 const mockConvex = new ConvexReactClient('https://test.convex.cloud');
 
 describe("Home page", () => {
   it("renders without crashing", () => {
     render(
-      <ClerkProvider publishableKey="pk_test_Y2xlcmsuaW5jbHVkZWQua2F0eWRpZC05Mi5sY2wuZGV2JA">
-        <ConvexProvider client={mockConvex}>
-          <Home />
-        </ConvexProvider>
-      </ClerkProvider>
+      <ConvexProvider client={mockConvex}>
+        <Home />
+      </ConvexProvider>
     );
     
     // Check that the page renders without errors
