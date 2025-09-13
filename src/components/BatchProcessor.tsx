@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -41,8 +41,8 @@ export function BatchProcessor({ projectId, className }: BatchProcessorProps) {
 
   // Mutations
   const createStagingJob = useMutation(api.stagingJobsSimple.createStagingJob);
-  const triggerStuckJobRecovery = useMutation(api.stagingJobsSimple.triggerStuckJobRecovery);
-  const migrateAllQueuedJobs = useMutation(api.stagingJobsSimple.migrateAllQueuedJobs);
+  const triggerStuckJobRecovery = useAction(api.stagingJobsSimple.triggerStuckJobRecovery);
+  const migrateAllQueuedJobs = useAction(api.stagingJobsSimple.migrateAllQueuedJobs);
 
   // Filter images that can be staged
   const stageableImages = images?.filter(img => img.status === "uploaded") || [];

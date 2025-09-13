@@ -14,9 +14,15 @@ export { ProjectSettings } from './ProjectSettings';
 export { ImageUploader } from './ImageUploader';
 export { ProjectImageManager } from './ProjectImageManager';
 export { ImageDisplay } from './ImageDisplay';
+export { RoomTypeSelector } from './RoomTypeSelector';
 
 // Batch Processing Components
 export { BatchProcessor } from './BatchProcessor';
 export { BatchSelector } from './BatchSelector';
 export { StylePalette } from './StylePalette';
 export { StagingProgress } from './StagingProgress';
+
+// MLS Compliance Components
+export { MLSComplianceDashboard } from './MLSComplianceDashboard';
+export { MLSExportDialog } from './MLSExportDialog';
+export { ComplianceValidator } from './ComplianceValidator';

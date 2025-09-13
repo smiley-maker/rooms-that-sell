@@ -176,10 +176,21 @@ export const processStagingJob = action({
           });
 
           if (stagingResult.success && stagingResult.stagedImageUrl) {
+            // Apply watermark for MLS compliance
+            let finalStagedUrl = stagingResult.stagedImageUrl;
+            try {
+              const { applyWatermark, DEFAULT_WATERMARK } = await import("./lib/mlsCompliance");
+              finalStagedUrl = await applyWatermark(stagingResult.stagedImageUrl, DEFAULT_WATERMARK);
+              console.log(`Applied MLS watermark to image ${image._id}`);
+            } catch (watermarkError) {
+              console.warn(`Failed to apply watermark to image ${image._id}:`, watermarkError);
+              // Continue with unwatermarked image
+            }
+
             // Update image with staged result
             await ctx.runMutation(api.images.updateImageWithStagedResult, {
               imageId: image._id,
-              stagedUrl: stagingResult.stagedImageUrl,
+              stagedUrl: finalStagedUrl,
               stagedKey: `staged/${image._id}_${Date.now()}.jpg`,
             });
 
@@ -195,9 +206,20 @@ export const processStagingJob = action({
               },
             });
 
+            // Validate MLS compliance in background
+            try {
+              await ctx.runAction(api.mlsCompliance.validateImageCompliance, {
+                imageId: image._id,
+              });
+              console.log(`MLS compliance validated for image ${image._id}`);
+            } catch (complianceError) {
+              console.warn(`Failed to validate compliance for image ${image._id}:`, complianceError);
+              // Don't fail the staging job for compliance validation errors
+            }
+
             results.push({
               imageId: image._id,
-              stagedUrl: stagingResult.stagedImageUrl,
+              stagedUrl: finalStagedUrl,
               success: true,
             });
 

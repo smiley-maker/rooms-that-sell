@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
 /**
- * Create a credit transaction
+ * Create a credit transaction record
  */
 export const createTransaction = mutation({
   args: {
@@ -35,11 +35,13 @@ export const getUserTransactions = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const transactions = await ctx.db
       .query("creditTransactions")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .order("desc")
       .take(args.limit || 50);
+
+    return transactions;
   },
 });
 
@@ -50,14 +52,15 @@ export const getTransactionsByType = query({
   args: {
     userId: v.id("users"),
     type: v.string(),
-    limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const transactions = await ctx.db
       .query("creditTransactions")
       .withIndex("by_type", (q) => q.eq("type", args.type))
       .filter((q) => q.eq(q.field("userId"), args.userId))
       .order("desc")
-      .take(args.limit || 50);
+      .collect();
+
+    return transactions;
   },
 });

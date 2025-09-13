@@ -405,6 +405,9 @@ export const getImageDownloadUrl = action({
       throw new Error("Image not found");
     }
 
+    // Debug logging for problematic images (can be removed in production)
+    // console.log(`Getting download URL for image ${args.imageId}: isStaged=${args.isStaged}, imageKey=${!!image.imageKey}, stagedKey=${!!image.stagedKey}, stagedUrl=${image.stagedUrl?.substring(0, 50)}...`);
+
     // Verify ownership through project
     const project = await ctx.runQuery(api.projects.getProject, { projectId: image.projectId });
     if (!project || project.userId !== user._id) {
@@ -428,18 +431,47 @@ export const getImageDownloadUrl = action({
       bucket = process.env.R2_BUCKET_STYLIZED!;
     } else if (args.isStaged && image.stagedUrl && !image.stagedUrl.includes('r2.cloudflarestorage.com') && !image.stagedUrl.startsWith('data:')) {
       // If staged URL is a mock URL (not data URL), fall back to original image
-      console.log(`Staged image is mock URL, falling back to original for image ${args.imageId}`);
-      key = image.imageKey!;
-      bucket = process.env.R2_BUCKET_OG!;
+      // console.log(`Staged image is mock URL, falling back to original for image ${args.imageId}`);
+      if (!image.imageKey) {
+        // If no imageKey, try to extract from originalUrl
+        // console.log(`No imageKey available, trying to extract from originalUrl for image ${args.imageId}`);
+        const url = image.originalUrl;
+        if (!url || !url.includes('r2.cloudflarestorage.com')) {
+          throw new Error(`No imageKey and invalid originalUrl for fallback for image ${args.imageId}: ${url}`);
+        }
+        const urlParts = url.split('/');
+        if (urlParts.length < 5) {
+          throw new Error(`Invalid R2 URL format for fallback: ${url}`);
+        }
+        bucket = urlParts[3]; // bucket name from URL
+        key = urlParts.slice(4).join('/'); // Everything after bucket
+      } else {
+        key = image.imageKey;
+        bucket = process.env.R2_BUCKET_OG!;
+      }
     } else if (image.imageKey) {
       key = image.imageKey;
       bucket = process.env.R2_BUCKET_OG!;
     } else {
       // Fallback: extract key from URL for older records
       const url = image.originalUrl; // Always use original URL for fallback
+      if (!url || !url.includes('r2.cloudflarestorage.com')) {
+        throw new Error(`Invalid image URL for fallback: ${url}`);
+      }
       const urlParts = url.split('/');
+      if (urlParts.length < 5) {
+        throw new Error(`Invalid R2 URL format: ${url}`);
+      }
       bucket = urlParts[3]; // bucket name from URL
       key = urlParts.slice(4).join('/'); // Everything after bucket
+    }
+
+    // Validate that we have both bucket and key
+    if (!bucket) {
+      throw new Error(`No bucket determined for image ${args.imageId}`);
+    }
+    if (!key) {
+      throw new Error(`No key determined for image ${args.imageId}. ImageKey: ${image.imageKey}, OriginalUrl: ${image.originalUrl}`);
     }
 
     try {
