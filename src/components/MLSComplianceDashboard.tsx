@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
+import { Image, MLSExport } from '@/types/convex';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -63,8 +64,8 @@ export function MLSComplianceDashboard({ projectId }: MLSComplianceDashboardProp
     setIsValidating(true);
     try {
       const stagedImages = projectImages
-        .filter(img => img.stagedUrl && img.status === 'staged')
-        .map(img => img._id);
+        .filter((img: Image) => img.stagedUrl && img.status === 'staged')
+        .map((img: Image) => img._id);
       
       console.log('Staged images to validate:', stagedImages);
       
@@ -272,7 +273,7 @@ export function MLSComplianceDashboard({ projectId }: MLSComplianceDashboardProp
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projectImages.map((image) => {
+            {projectImages.map((image: Image) => {
               const isSelected = selectedImages.includes(image._id);
               const compliance = image.mlsCompliance;
               
@@ -326,7 +327,7 @@ export function MLSComplianceDashboard({ projectId }: MLSComplianceDashboardProp
                               <div className="text-xs text-red-600">
                                 <span className="font-medium">Violations:</span>
                                 <ul className="list-disc list-inside mt-1">
-                                  {compliance.violations.slice(0, 2).map((violation, idx) => (
+                                  {compliance.violations.slice(0, 2).map((violation: string, idx: number) => (
                                     <li key={idx} className="truncate">{violation}</li>
                                   ))}
                                   {compliance.violations.length > 2 && (
@@ -363,7 +364,7 @@ export function MLSComplianceDashboard({ projectId }: MLSComplianceDashboardProp
 
           {mlsExports && mlsExports.length > 0 ? (
             <div className="space-y-4">
-              {mlsExports.map((exportRecord) => (
+              {mlsExports.map((exportRecord: MLSExport) => (
                 <Card key={exportRecord._id}>
                   <CardHeader>
                     <div className="flex justify-between items-start">
@@ -433,7 +434,7 @@ export function MLSComplianceDashboard({ projectId }: MLSComplianceDashboardProp
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                    {guidelines.requirements.map((req, idx) => (
+                    {guidelines.requirements.map((req: string, idx: number) => (
                       <li key={idx} className="flex items-start gap-2">
                         <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                         <span className="text-sm">{req}</span>
@@ -452,7 +453,7 @@ export function MLSComplianceDashboard({ projectId }: MLSComplianceDashboardProp
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                    {guidelines.bestPractices.map((practice, idx) => (
+                    {guidelines.bestPractices.map((practice: string, idx: number) => (
                       <li key={idx} className="flex items-start gap-2">
                         <Shield className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                         <span className="text-sm">{practice}</span>
@@ -471,7 +472,7 @@ export function MLSComplianceDashboard({ projectId }: MLSComplianceDashboardProp
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                    {guidelines.commonViolations.map((violation, idx) => (
+                    {guidelines.commonViolations.map((violation: string, idx: number) => (
                       <li key={idx} className="flex items-start gap-2">
                         <XCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
                         <span className="text-sm">{violation}</span>

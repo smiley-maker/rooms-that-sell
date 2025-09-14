@@ -305,7 +305,7 @@ export function ImageDetailViewer({ imageId, isOpen, onClose }: ImageDetailViewe
                       <div>
                         <label className="text-sm font-medium text-gray-500">Detected Features</label>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {image.metadata.detectedFeatures.map((feature, index) => (
+                          {image.metadata.detectedFeatures.map((feature: string, index: number) => (
                             <Badge key={index} variant="outline" className="text-xs">
                               {feature.replace('_', ' ')}
                             </Badge>

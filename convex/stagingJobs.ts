@@ -52,8 +52,13 @@ export const createStagingJob = mutation({
 
     // Check if user has enough credits
     const creditsRequired = args.imageIds.length;
-    if (user.credits < creditsRequired) {
-      throw new Error(`Insufficient credits. Required: ${creditsRequired}, Available: ${user.credits}`);
+    const creditCheck = await ctx.runQuery(api.users.checkSufficientCredits, {
+      userId: user._id,
+      requiredCredits: creditsRequired,
+    });
+    
+    if (!creditCheck.sufficient) {
+      throw new Error(creditCheck.message);
     }
 
     // Validate style preset
@@ -73,19 +78,12 @@ export const createStagingJob = mutation({
       createdAt: Date.now(),
     });
 
-    // Deduct credits from user account
-    await ctx.db.patch(user._id, {
-      credits: user.credits - creditsRequired,
-    });
-
-    // Create credit transaction record
-    await ctx.db.insert("creditTransactions", {
+    // Deduct credits using enhanced function
+    await ctx.runMutation(api.users.deductCredits, {
       userId: user._id,
-      type: "usage",
-      amount: -creditsRequired,
+      amount: creditsRequired,
       description: `Batch staging: ${creditsRequired} images with ${args.stylePreset} style`,
       relatedJobId: jobId,
-      createdAt: Date.now(),
     });
 
     // Update image statuses to processing
