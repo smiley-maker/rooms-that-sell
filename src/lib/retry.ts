@@ -2,13 +2,41 @@
  * Retry mechanisms for failed operations
  */
 
+
+// Helper function to safely extract error message
+function getErrorMessage(error: unknown): string {
+  if (error && typeof error === "object" && "message" in error) {
+    return String(error.message);
+  }
+  return String(error);
+}
+
+// Helper function to safely extract error name
+function getErrorName(error: unknown): string | undefined {
+  if (error && typeof error === "object" && "name" in error) {
+    return String(error.name);
+  }
+  return undefined;
+}
+
+// Helper function to safely extract error status
+function getErrorStatus(error: unknown): number | undefined {
+  if (error && typeof error === "object" && "status" in error) {
+    const status = error.status;
+    if (typeof status === "number") {
+      return status;
+    }
+  }
+  return undefined;
+}
+
 export interface RetryOptions {
   maxAttempts: number;
   baseDelay: number;
   maxDelay: number;
   exponentialBackoff: boolean;
-  retryCondition?: (error: any) => boolean;
-  onRetry?: (attempt: number, error: any) => void;
+  retryCondition?: (error: unknown) => boolean;
+  onRetry?: (attempt: number, error: unknown) => void;
 }
 
 export const DEFAULT_RETRY_OPTIONS: RetryOptions = {
@@ -18,16 +46,20 @@ export const DEFAULT_RETRY_OPTIONS: RetryOptions = {
   exponentialBackoff: true,
   retryCondition: (error) => {
     // Default: retry on network errors, timeouts, and server errors
-    if (error?.name === "NetworkError" || error?.name === "TimeoutError") {
+    const errorName = getErrorName(error);
+    const errorMessage = getErrorMessage(error);
+    const errorStatus = getErrorStatus(error);
+    
+    if (errorName === "NetworkError" || errorName === "TimeoutError") {
       return true;
     }
     
-    if (error?.message?.includes("timeout") || error?.message?.includes("network")) {
+    if (errorMessage.includes("timeout") || errorMessage.includes("network")) {
       return true;
     }
     
     // Retry on 5xx server errors
-    if (error?.status >= 500 && error?.status < 600) {
+    if (errorStatus && errorStatus >= 500 && errorStatus < 600) {
       return true;
     }
     
@@ -44,7 +76,7 @@ export async function withRetry<T>(
   options: Partial<RetryOptions> = {}
 ): Promise<T> {
   const config = { ...DEFAULT_RETRY_OPTIONS, ...options };
-  let lastError: any;
+  let lastError: unknown;
 
   for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
     try {
@@ -92,12 +124,13 @@ export async function withConvexRetry<T>(
     ...options,
     retryCondition: (error) => {
       // Retry on network errors and server errors
-      if (error?.name === "NetworkError" || error?.name === "TimeoutError") {
+      const errorName = getErrorName(error);
+      if (errorName === "NetworkError" || errorName === "TimeoutError") {
         return true;
       }
       
       // Retry on Convex server errors but not client errors
-      const message = error?.message || "";
+      const message = getErrorMessage(error);
       if (message.includes("Internal server error") || message.includes("Service unavailable")) {
         return true;
       }
@@ -126,12 +159,13 @@ export async function withUploadRetry<T>(
     ...options,
     retryCondition: (error) => {
       // Retry on network errors, timeouts, and server errors
-      if (error?.name === "NetworkError" || error?.name === "TimeoutError") {
+      const errorName = getErrorName(error);
+      if (errorName === "NetworkError" || errorName === "TimeoutError") {
         return true;
       }
       
       // Retry on upload-specific errors
-      const message = error?.message || "";
+      const message = getErrorMessage(error);
       if (message.includes("upload") || message.includes("network") || message.includes("timeout")) {
         return true;
       }
@@ -159,7 +193,7 @@ export async function withAIRetry<T>(
     maxDelay: 30000,
     ...options,
     retryCondition: (error) => {
-      const message = error?.message || "";
+      const message = getErrorMessage(error);
       
       // Retry on rate limits (with longer delay)
       if (message.includes("rate limit") || message.includes("quota")) {
@@ -167,7 +201,7 @@ export async function withAIRetry<T>(
       }
       
       // Retry on temporary AI service errors
-      if (message.includes("service unavailable") || message.includes("timeout")) {
+      if (message.toLowerCase().includes("service unavailable") || message.toLowerCase().includes("timeout")) {
         return true;
       }
       

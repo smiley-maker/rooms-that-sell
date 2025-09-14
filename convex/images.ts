@@ -1,5 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query, action } from "./_generated/server";
+import { presignPut } from "@integrations/r2";
+import { logger } from "./lib/logger";
+import { z } from "zod";
 import { api } from "./_generated/api";
 
 /**
@@ -88,33 +91,21 @@ export const generateImageUploadUrl = action({
         throw new Error("Missing required R2 environment variables");
       }
 
-      // Use AWS SDK to generate pre-signed URL
-      const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
-      const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
-
-      const r2Client = new S3Client({
-        region: "auto",
-        endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-        credentials: {
-          accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-          secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-        },
-      });
-
-      const command = new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_OG!,
-        Key: imageKey,
-        ContentType: args.contentType,
-        Metadata: {
-          userId: user._id,
-          projectId: args.projectId,
+      // Use integrations adapter to generate pre-signed URL
+      const { url: uploadUrl } = await presignPut({
+        key: imageKey,
+        contentType: args.contentType,
+        expiresIn: 3600,
+        bucket: process.env.R2_BUCKET_OG!,
+        metadata: {
+          userId: String(user._id),
+          projectId: String(args.projectId),
           originalFilename: args.filename,
         },
       });
 
-      const uploadUrl: string = await getSignedUrl(r2Client, command, { 
-        expiresIn: 3600 // 1 hour
-      });
+      // Validate adapter response
+      z.string().url().parse(uploadUrl);
 
       return {
         uploadUrl,
@@ -122,7 +113,7 @@ export const generateImageUploadUrl = action({
         bucket: process.env.R2_BUCKET_OG!,
       };
     } catch (error) {
-      console.error("Failed to generate upload URL:", error);
+      logger.error("images.generateUploadUrl: failed", { error: error instanceof Error ? error.message : String(error) });
       throw new Error(`Failed to generate upload URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
@@ -428,7 +419,7 @@ export const getImageDownloadUrl = action({
     if (args.isStaged && image.stagedKey && image.stagedUrl && image.stagedUrl.includes('r2.cloudflarestorage.com')) {
       // Use staged image if it's a real R2 URL
       key = image.stagedKey;
-      bucket = process.env.R2_BUCKET_STYLIZED!;
+      bucket = process.env.R2_BUCKET_STAGED!;
     } else if (args.isStaged && image.stagedUrl && !image.stagedUrl.includes('r2.cloudflarestorage.com') && !image.stagedUrl.startsWith('data:')) {
       // If staged URL is a mock URL (not data URL), fall back to original image
       // console.log(`Staged image is mock URL, falling back to original for image ${args.imageId}`);

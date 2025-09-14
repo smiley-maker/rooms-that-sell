@@ -24,7 +24,7 @@ export function ProgressIndicator({ steps, currentStep, className }: ProgressInd
       <Progress value={progress} className="h-2" />
       
       <div className="space-y-2">
-        {steps.map((step, index) => {
+        {steps.map((step) => {
           const isActive = step.id === currentStep;
           const isCompleted = step.status === "completed";
           const isError = step.status === "error";

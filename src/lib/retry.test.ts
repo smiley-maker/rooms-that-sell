@@ -145,14 +145,12 @@ describe("withAIRetry", () => {
   });
 
   it("should have limited retry attempts", async () => {
-    const operation = vi.fn().mockRejectedValue({ message: "Service unavailable" });
+    const operation = vi.fn().mockRejectedValue(new Error("Service unavailable"));
 
     await expect(withAIRetry(operation, {
-      baseDelay: 10, // Speed up test
-      maxDelay: 100,
-    })).rejects.toMatchObject({
-      message: "Service unavailable",
-    });
+      baseDelay: 1, // Speed up test even more
+      maxDelay: 10,
+    })).rejects.toThrow("Service unavailable");
 
     expect(operation).toHaveBeenCalledTimes(2); // maxAttempts: 2 for AI operations
   });

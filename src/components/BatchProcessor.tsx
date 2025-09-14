@@ -38,12 +38,12 @@ export function BatchProcessor({ projectId, className }: BatchProcessorProps) {
   // Fetch data
   const images = useQuery(api.images.getProjectImages, { projectId });
   const user = useQuery(api.users.getCurrentUser);
-  const activeStagingJobs = useQuery(api.stagingJobsSimple.getActiveStagingJobs, { projectId });
+  const activeStagingJobs = useQuery(api.stagingJobs.getActiveStagingJobs, { projectId });
 
   // Mutations
-  const createStagingJob = useMutation(api.stagingJobsSimple.createStagingJob);
-  const triggerStuckJobRecovery = useAction(api.stagingJobsSimple.triggerStuckJobRecovery);
-  const migrateAllQueuedJobs = useAction(api.stagingJobsSimple.migrateAllQueuedJobs);
+  const createStagingJob = useMutation(api.stagingJobs.createStagingJob);
+  const triggerStuckJobRecovery = useAction(api.stagingJobs.triggerStuckJobRecovery);
+  const checkEnv = useAction(api.health.checkEnv);
 
   // Filter images that can be staged
   const stageableImages = images?.filter((img: Image) => img.status === "uploaded") || [];
@@ -110,25 +110,11 @@ export function BatchProcessor({ projectId, className }: BatchProcessorProps) {
       } else {
         toast.info("No stuck jobs found");
       }
-    } catch (error) {
-      console.error("Failed to recover stuck jobs:", error);
+    } catch {
       toast.error("Failed to recover stuck jobs");
     }
   };
 
-  const handleMigrateAllJobs = async () => {
-    try {
-      const result = await migrateAllQueuedJobs();
-      if (result.totalFound > 0) {
-        toast.success(`Migrated ${result.totalScheduled}/${result.totalFound} queued job(s)`);
-      } else {
-        toast.info("No queued jobs found to migrate");
-      }
-    } catch (error) {
-      console.error("Failed to migrate jobs:", error);
-      toast.error("Failed to migrate jobs");
-    }
-  };
 
   if (!images || !user) {
     return (
@@ -146,29 +132,42 @@ export function BatchProcessor({ projectId, className }: BatchProcessorProps) {
 
   return (
     <div className={cn("space-y-6", className)}>
+      {/* Utility Actions - always visible */}
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRecoverStuckJobs}
+          className="text-xs"
+        >
+          Restart Stuck Jobs
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={async () => {
+            try {
+              const res = await checkEnv();
+              if (res.ok) {
+                toast.success("Env OK");
+              } else {
+                toast.error(`Missing env: ${res.missing.join(", ")}`);
+              }
+            } catch {
+              toast.error("Health check failed");
+            }
+          }}
+          className="text-xs"
+        >
+          Check Env
+        </Button>
+      </div>
+
       {/* Active Jobs */}
       {activeStagingJobs && activeStagingJobs.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Active Staging Jobs</h3>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRecoverStuckJobs}
-                className="text-xs"
-              >
-                Restart Stuck Jobs
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleMigrateAllJobs}
-                className="text-xs"
-              >
-                Migrate All Queued
-              </Button>
-            </div>
           </div>
           {activeStagingJobs.map((job: StagingJob) => (
             <StagingProgress

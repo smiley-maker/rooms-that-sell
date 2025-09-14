@@ -81,6 +81,7 @@ export default defineSchema({
 
   stagingJobs: defineTable({
     userId: v.id("users"),
+    projectId: v.optional(v.id("projects")),
     imageIds: v.array(v.id("images")),
     stylePreset: v.string(),
     customPrompt: v.optional(v.string()),
@@ -93,10 +94,12 @@ export default defineSchema({
     }))),
     creditsUsed: v.number(),
     createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
   })
-    .index("by_userId", ["userId"])
-    .index("by_status", ["status"]),
+    .index("by_userId", ["userId"]) 
+    .index("by_status", ["status"]) 
+    .index("by_projectId", ["projectId"]),
 
   subscriptions: defineTable({
     userId: v.id("users"),

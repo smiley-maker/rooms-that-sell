@@ -22,6 +22,7 @@ import {
   Shield
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { DashboardSkeleton } from "@/components/ui/skeleton";
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -71,33 +72,20 @@ export default function ProjectDetailPage() {
   };
 
   if (project === undefined || images === undefined) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="animate-pulse space-y-6">
-          <div className="flex items-center gap-4">
-            <div className="w-8 h-8 bg-gray-200 rounded"></div>
-            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-          </div>
-          <div className="h-32 bg-gray-200 rounded"></div>
-          <div className="h-96 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (!project) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center py-12">
-          <h1 className="text-2xl font-bold mb-4">Project Not Found</h1>
-          <p className="text-muted-foreground mb-4">
-            The project you&apos;re looking for doesn&apos;t exist or you don&apos;t have access to it.
-          </p>
-          <Button onClick={() => router.push("/projects")}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Projects
-          </Button>
-        </div>
+      <div className="text-center py-12">
+        <h1 className="text-xl sm:text-2xl font-bold mb-4">Project Not Found</h1>
+        <p className="text-sm sm:text-base text-muted-foreground mb-4">
+          The project you&apos;re looking for doesn&apos;t exist or you don&apos;t have access to it.
+        </p>
+        <Button onClick={() => router.push("/projects")}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Projects
+        </Button>
       </div>
     );
   }
@@ -106,7 +94,7 @@ export default function ProjectDetailPage() {
   const uploadedImages = images?.filter((img: Image) => img.status === "uploaded") || [];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button 
@@ -115,30 +103,31 @@ export default function ProjectDetailPage() {
           onClick={() => router.push("/projects")}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Projects
+          <span className="hidden sm:inline">Back to Projects</span>
+          <span className="sm:hidden">Back</span>
         </Button>
       </div>
 
       {/* Project Info */}
       <Card>
         <CardHeader>
-          <div className="flex items-start justify-between">
-            <div className="space-y-2">
-              <CardTitle className="text-2xl">{project.name}</CardTitle>
-              <div className="flex items-center text-muted-foreground">
-                <MapPin className="h-4 w-4 mr-2" />
-                {project.address}
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div className="space-y-2 flex-1 min-w-0">
+              <CardTitle className="text-xl sm:text-2xl truncate">{project.name}</CardTitle>
+              <div className="flex items-center text-sm sm:text-base text-muted-foreground">
+                <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="truncate">{project.address}</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Badge 
                   variant="secondary" 
-                  className={getListingTypeColor(project.listingType)}
+                  className={`text-xs ${getListingTypeColor(project.listingType)}`}
                 >
                   {project.listingType.charAt(0).toUpperCase() + project.listingType.slice(1)}
                 </Badge>
                 <Badge 
                   variant="secondary" 
-                  className={getStatusColor(project.status)}
+                  className={`text-xs ${getStatusColor(project.status)}`}
                 >
                   <span className="flex items-center gap-1">
                     {getStatusIcon(project.status)}
@@ -149,7 +138,9 @@ export default function ProjectDetailPage() {
             </div>
             <Button 
               variant="outline"
+              size="sm"
               onClick={() => router.push(`/projects/${projectId}/settings`)}
+              className="w-full sm:w-auto"
             >
               <Settings className="w-4 h-4 mr-2" />
               Settings
@@ -159,37 +150,39 @@ export default function ProjectDetailPage() {
         <CardContent className="space-y-4">
           {project.notes && (
             <div>
-              <h4 className="font-medium mb-2">Notes</h4>
-              <p className="text-muted-foreground">{project.notes}</p>
+              <h4 className="font-medium mb-2 text-sm sm:text-base">Notes</h4>
+              <p className="text-sm text-muted-foreground">{project.notes}</p>
             </div>
           )}
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div className="flex items-center gap-2">
-              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+              <ImageIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <span className="text-sm">
                 <strong>{images.length}</strong> total images
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-blue-600" />
+              <Clock className="h-4 w-4 text-blue-600 flex-shrink-0" />
               <span className="text-sm">
                 <strong>{uploadedImages.length}</strong> ready to stage
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
               <span className="text-sm">
                 <strong>{stagedImages.length}</strong> staged
               </span>
             </div>
           </div>
 
-          <div className="flex items-center text-sm text-muted-foreground">
-            <Calendar className="h-4 w-4 mr-2" />
-            Created {formatDistanceToNow(new Date(project.createdAt), { addSuffix: true })}
+          <div className="flex flex-col sm:flex-row sm:items-center text-xs sm:text-sm text-muted-foreground gap-1 sm:gap-0">
+            <div className="flex items-center">
+              <Calendar className="h-4 w-4 mr-2" />
+              Created {formatDistanceToNow(new Date(project.createdAt), { addSuffix: true })}
+            </div>
             {project.updatedAt !== project.createdAt && (
-              <span className="ml-4">
+              <span className="sm:ml-4">
                 • Updated {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
               </span>
             )}
@@ -200,21 +193,23 @@ export default function ProjectDetailPage() {
       {/* Main Content Tabs */}
       <Tabs defaultValue="images" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="images" className="flex items-center gap-2">
+          <TabsTrigger value="images" className="flex items-center gap-2 text-xs sm:text-sm">
             <ImageIcon className="w-4 h-4" />
-            Images & Staging
+            <span className="hidden sm:inline">Images & Staging</span>
+            <span className="sm:hidden">Images</span>
           </TabsTrigger>
-          <TabsTrigger value="compliance" className="flex items-center gap-2">
+          <TabsTrigger value="compliance" className="flex items-center gap-2 text-xs sm:text-sm">
             <Shield className="w-4 h-4" />
-            MLS Compliance
+            <span className="hidden sm:inline">MLS Compliance</span>
+            <span className="sm:hidden">Compliance</span>
           </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="images" className="mt-6">
+        <TabsContent value="images" className="mt-4 sm:mt-6">
           <ProjectImageManager projectId={projectId} />
         </TabsContent>
         
-        <TabsContent value="compliance" className="mt-6">
+        <TabsContent value="compliance" className="mt-4 sm:mt-6">
           <MLSComplianceDashboard projectId={projectId} />
         </TabsContent>
       </Tabs>

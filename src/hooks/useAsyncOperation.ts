@@ -20,11 +20,11 @@ export interface AsyncOperationOptions {
   showSuccessNotification?: boolean;
   showErrorNotification?: boolean;
   successMessage?: string;
-  onSuccess?: (data: any) => void;
+  onSuccess?: (data: unknown) => void;
   onError?: (error: AppError) => void;
 }
 
-export function useAsyncOperation<T = any>(
+export function useAsyncOperation<T = unknown>(
   options: AsyncOperationOptions = {}
 ) {
   const [state, setState] = useState<AsyncOperationState<T>>({
@@ -141,7 +141,7 @@ export function useAsyncOperation<T = any>(
 /**
  * Hook specifically for Convex operations
  */
-export function useConvexOperation<T = any>(options: AsyncOperationOptions = {}) {
+export function useConvexOperation<T = unknown>(options: AsyncOperationOptions = {}) {
   return useAsyncOperation<T>({
     ...options,
     retryOptions: {
@@ -149,7 +149,9 @@ export function useConvexOperation<T = any>(options: AsyncOperationOptions = {})
       baseDelay: 1000,
       exponentialBackoff: true,
       retryCondition: (error) => {
-        const message = error?.message || "";
+        const message = error && typeof error === "object" && "message" in error 
+          ? String(error.message) 
+          : String(error);
         return !message.includes("Unauthenticated") && !message.includes("Invalid");
       },
       ...options.retryOptions,
@@ -160,7 +162,7 @@ export function useConvexOperation<T = any>(options: AsyncOperationOptions = {})
 /**
  * Hook specifically for upload operations
  */
-export function useUploadOperation<T = any>(options: AsyncOperationOptions = {}) {
+export function useUploadOperation<T = unknown>(options: AsyncOperationOptions = {}) {
   return useAsyncOperation<T>({
     ...options,
     retryOptions: {
@@ -168,7 +170,9 @@ export function useUploadOperation<T = any>(options: AsyncOperationOptions = {})
       baseDelay: 2000,
       maxDelay: 15000,
       retryCondition: (error) => {
-        const message = error?.message || "";
+        const message = error && typeof error === "object" && "message" in error 
+          ? String(error.message) 
+          : String(error);
         return !message.includes("too large") && !message.includes("invalid format");
       },
       ...options.retryOptions,
@@ -179,7 +183,7 @@ export function useUploadOperation<T = any>(options: AsyncOperationOptions = {})
 /**
  * Hook specifically for AI operations
  */
-export function useAIOperation<T = any>(options: AsyncOperationOptions = {}) {
+export function useAIOperation<T = unknown>(options: AsyncOperationOptions = {}) {
   return useAsyncOperation<T>({
     ...options,
     retryOptions: {
@@ -187,7 +191,9 @@ export function useAIOperation<T = any>(options: AsyncOperationOptions = {}) {
       baseDelay: 5000,
       maxDelay: 30000,
       retryCondition: (error) => {
-        const message = error?.message || "";
+        const message = error && typeof error === "object" && "message" in error 
+          ? String(error.message) 
+          : String(error);
         return message.includes("rate limit") || 
                message.includes("service unavailable") || 
                message.includes("timeout");

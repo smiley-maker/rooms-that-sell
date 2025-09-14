@@ -4,22 +4,8 @@ import {
   validateImageForStaging, 
   getStylePresets, 
   estimateProcessingTime,
-  retryWithBackoff,
   type StylePreset 
 } from "./gemini";
-
-// Mock the Google AI SDK
-vi.mock("@google/generative-ai", () => ({
-  GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
-    getGenerativeModel: vi.fn().mockReturnValue({
-      generateContent: vi.fn().mockResolvedValue({
-        response: {
-          text: vi.fn().mockReturnValue("Mock staging description for the room")
-        }
-      })
-    })
-  }))
-}));
 
 // Mock the new Google GenAI SDK
 vi.mock("@google/genai", () => ({
@@ -109,25 +95,24 @@ describe("Gemini AI Integration", () => {
 
   describe("validateImageForStaging", () => {
     beforeEach(() => {
-      // Mock validation response with proper JSON
-      const { GoogleGenerativeAI } = require("@google/generative-ai");
-      const mockInstance = {
-        getGenerativeModel: vi.fn().mockReturnValue({
+      // Re-mock @google/genai for validation path to return text parts
+      const mod = require("@google/genai");
+      mod.GoogleGenAI.mockImplementation(() => ({
+        models: {
           generateContent: vi.fn().mockResolvedValue({
-            response: {
-              text: vi.fn().mockReturnValue(JSON.stringify({
-                isValid: true,
-                issues: [],
-                confidence: 0.9,
-                roomType: "living_room"
-              }))
-            }
+            candidates: [{
+              content: {
+                parts: [{ text: JSON.stringify({
+                  isValid: true,
+                  issues: [],
+                  confidence: 0.9,
+                  roomType: "living_room"
+                }) }]
+              }
+            }]
           })
-        })
-      };
-      
-      // Mock the constructor
-      GoogleGenerativeAI.mockImplementation(() => mockInstance);
+        }
+      }));
     });
 
     it("should validate a suitable image", async () => {
@@ -192,39 +177,5 @@ describe("Gemini AI Integration", () => {
     });
   });
 
-  describe("retryWithBackoff", () => {
-    it("should succeed on first try", async () => {
-      const operation = vi.fn().mockResolvedValue("success");
-      
-      const result = await retryWithBackoff(operation);
-      
-      expect(result).toBe("success");
-      expect(operation).toHaveBeenCalledTimes(1);
-    });
-
-    it("should retry on retryable errors", async () => {
-      const operation = vi.fn()
-        .mockRejectedValueOnce(new Error("Rate limit exceeded"))
-        .mockResolvedValue("success");
-      
-      const result = await retryWithBackoff(operation, 2);
-      
-      expect(result).toBe("success");
-      expect(operation).toHaveBeenCalledTimes(2);
-    });
-
-    it("should not retry on non-retryable errors", async () => {
-      const operation = vi.fn().mockRejectedValue(new Error("Invalid API key"));
-      
-      await expect(retryWithBackoff(operation, 2)).rejects.toThrow("Invalid API key");
-      expect(operation).toHaveBeenCalledTimes(1);
-    });
-
-    it("should exhaust retries and throw last error", async () => {
-      const operation = vi.fn().mockRejectedValue(new Error("Network timeout"));
-      
-      await expect(retryWithBackoff(operation, 2)).rejects.toThrow("Network timeout");
-      expect(operation).toHaveBeenCalledTimes(3); // Initial + 2 retries
-    });
-  });
+  // Removed deprecated retryWithBackoff tests (covered by src/lib/retry.test.ts)
 });

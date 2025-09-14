@@ -7,7 +7,7 @@ export interface AppError {
   message: string;
   userMessage: string;
   retryable: boolean;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export enum ErrorCode {
@@ -58,6 +58,22 @@ export enum ErrorCode {
   // Generic errors
   UNKNOWN_ERROR = "UNKNOWN_ERROR",
   SERVER_ERROR = "SERVER_ERROR",
+}
+
+// Helper function to safely extract error message
+function getErrorMessage(error: unknown): string {
+  if (error && typeof error === "object" && "message" in error) {
+    return String(error.message);
+  }
+  return String(error);
+}
+
+// Helper function to safely extract error name
+function getErrorName(error: unknown): string | undefined {
+  if (error && typeof error === "object" && "name" in error) {
+    return String(error.name);
+  }
+  return undefined;
 }
 
 export class AppErrorHandler {
@@ -207,7 +223,7 @@ export class AppErrorHandler {
   static createError(
     code: ErrorCode,
     originalError?: Error | unknown,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): AppError {
     const errorConfig = this.errorMessages[code] || this.errorMessages[ErrorCode.UNKNOWN_ERROR];
     
@@ -224,8 +240,8 @@ export class AppErrorHandler {
     };
   }
 
-  static fromConvexError(error: any): AppError {
-    const errorMessage = error?.message || String(error);
+  static fromConvexError(error: unknown): AppError {
+    const errorMessage = getErrorMessage(error);
     
     // Map common Convex errors to our error codes
     if (errorMessage.includes("Unauthenticated")) {
@@ -252,12 +268,15 @@ export class AppErrorHandler {
     return this.createError(ErrorCode.SERVER_ERROR, error);
   }
 
-  static fromNetworkError(error: any): AppError {
-    if (error?.name === "TimeoutError" || error?.message?.includes("timeout")) {
+  static fromNetworkError(error: unknown): AppError {
+    const errorName = getErrorName(error);
+    const errorMessage = getErrorMessage(error);
+    
+    if (errorName === "TimeoutError" || errorMessage.includes("timeout")) {
       return this.createError(ErrorCode.TIMEOUT_ERROR, error);
     }
     
-    if (error?.name === "NetworkError" || !navigator.onLine) {
+    if (errorName === "NetworkError" || !navigator.onLine) {
       return this.createError(ErrorCode.NETWORK_ERROR, error);
     }
     
@@ -284,7 +303,7 @@ export class AppErrorHandler {
  */
 export async function withErrorHandling<T>(
   operation: () => Promise<T>,
-  errorContext?: Record<string, any>
+  errorContext?: Record<string, unknown>
 ): Promise<{ data?: T; error?: AppError }> {
   try {
     const data = await operation();

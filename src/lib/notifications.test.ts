@@ -105,6 +105,9 @@ describe("NotificationService", () => {
           label: "Upgrade Plan",
           onClick: expect.any(Function),
         },
+        description: undefined,
+        dismissible: true,
+        duration: 6000,
       });
 
       // Test the action
@@ -127,6 +130,9 @@ describe("NotificationService", () => {
           label: "Sign In",
           onClick: expect.any(Function),
         },
+        description: undefined,
+        dismissible: true,
+        duration: 6000,
       });
 
       // Test the action
@@ -146,6 +152,9 @@ describe("NotificationService", () => {
           label: "Retry",
           onClick: retryAction,
         },
+        description: undefined,
+        dismissible: true,
+        duration: 6000,
       });
     });
   });
@@ -155,7 +164,10 @@ describe("NotificationService", () => {
       NotificationService.batchOperation("Upload", 5, 5, 0);
 
       expect(toast.success).toHaveBeenCalledWith("Upload completed successfully", {
+        action: undefined,
         description: "5 of 5 items processed",
+        dismissible: true,
+        duration: 4000,
       });
     });
 
@@ -163,7 +175,10 @@ describe("NotificationService", () => {
       NotificationService.batchOperation("Upload", 5, 0, 5);
 
       expect(toast.error).toHaveBeenCalledWith("Upload failed", {
+        action: undefined,
         description: "5 of 5 items failed",
+        dismissible: true,
+        duration: 6000,
       });
     });
 
@@ -171,7 +186,10 @@ describe("NotificationService", () => {
       NotificationService.batchOperation("Upload", 5, 3, 2);
 
       expect(toast.warning).toHaveBeenCalledWith("Upload completed with errors", {
+        action: undefined,
         description: "3 succeeded, 2 failed out of 5 items",
+        dismissible: true,
+        duration: 5000,
       });
     });
   });
@@ -190,7 +208,12 @@ describe("NotificationService", () => {
       NotificationService.uploadProgress("test.jpg", 100);
 
       expect(toast.dismiss).toHaveBeenCalledWith("upload-test.jpg");
-      expect(toast.success).toHaveBeenCalledWith("test.jpg uploaded successfully");
+      expect(toast.success).toHaveBeenCalledWith("test.jpg uploaded successfully", {
+        action: undefined,
+        description: undefined,
+        dismissible: true,
+        duration: 4000,
+      });
     });
   });
 
@@ -209,7 +232,10 @@ describe("NotificationService", () => {
 
       expect(toast.dismiss).toHaveBeenCalledWith("staging-progress");
       expect(toast.success).toHaveBeenCalledWith("Staging completed", {
+        action: undefined,
         description: "5 images staged successfully",
+        dismissible: true,
+        duration: 4000,
       });
     });
   });
@@ -225,11 +251,13 @@ describe("NotificationService", () => {
       NotificationService.creditNotification(0, "trial");
 
       expect(toast.error).toHaveBeenCalledWith("You're out of credits!", {
-        description: "Upgrade your plan to continue staging images.",
         action: {
           label: "Upgrade Plan",
           onClick: expect.any(Function),
         },
+        description: "Upgrade your plan to continue staging images.",
+        dismissible: true,
+        duration: 6000,
       });
     });
 
@@ -237,11 +265,13 @@ describe("NotificationService", () => {
       NotificationService.creditNotification(0, "agent");
 
       expect(toast.error).toHaveBeenCalledWith("You're out of credits!", {
-        description: "Your monthly credits have been used up.",
         action: {
           label: "View Billing",
           onClick: expect.any(Function),
         },
+        description: "Your monthly credits have been used up.",
+        dismissible: true,
+        duration: 6000,
       });
     });
 
@@ -249,11 +279,13 @@ describe("NotificationService", () => {
       NotificationService.creditNotification(3, "trial");
 
       expect(toast.warning).toHaveBeenCalledWith("Running low on credits", {
-        description: "You have 3 credits remaining.",
         action: {
           label: "Upgrade Plan",
           onClick: expect.any(Function),
         },
+        description: "You have 3 credits remaining.",
+        dismissible: true,
+        duration: 5000,
       });
     });
 
@@ -261,8 +293,10 @@ describe("NotificationService", () => {
       NotificationService.creditNotification(2, "agent");
 
       expect(toast.warning).toHaveBeenCalledWith("Running low on credits", {
-        description: "You have 2 credits remaining.",
         action: undefined,
+        description: "You have 2 credits remaining.",
+        dismissible: true,
+        duration: 5000,
       });
     });
 

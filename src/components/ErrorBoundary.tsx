@@ -150,7 +150,7 @@ function DefaultErrorFallback({ error, retry }: DefaultErrorFallbackProps) {
 export function useErrorHandler() {
   const [error, setError] = React.useState<AppError | null>(null);
 
-  const handleError = React.useCallback((error: unknown, context?: Record<string, any>) => {
+  const handleError = React.useCallback((error: unknown, context?: Record<string, unknown>) => {
     let appError: AppError;
     
     if (error && typeof error === "object" && "code" in error) {

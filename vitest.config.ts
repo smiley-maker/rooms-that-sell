@@ -7,13 +7,14 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@integrations": path.resolve(__dirname, "./packages/integrations"),
     },
   },
   test: {
     globals: true,
     environment: "jsdom",
     setupFiles: "./vitest.setup.ts",
-    include: ["src/**/*.{test,spec}.{ts,tsx}", "convex/**/*.{test,spec}.{ts,tsx}"],
+    include: ["src/**/*.{test,spec}.{ts,tsx}", "convex/**/*.{test,spec}.{ts,tsx}", "packages/**/*.{test,spec}.{ts,tsx}"],
     exclude: [
       "**/node_modules/**",
       "**/dist/**",

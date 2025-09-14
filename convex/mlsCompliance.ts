@@ -18,16 +18,9 @@ export const validateImageCompliance = action({
     imageId: v.id("images"),
   },
   handler: async (ctx, args) => {
-    // Get current user
+    // Allow background invocation without identity; when identity exists, enforce ownership
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = await ctx.runQuery(api.users.getCurrentUser);
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const user = identity ? await ctx.runQuery(api.users.getCurrentUser) : null;
 
     // Get image and verify ownership
     const image = await ctx.runQuery(api.images.getImageById, { imageId: args.imageId });
@@ -35,9 +28,12 @@ export const validateImageCompliance = action({
       throw new Error("Image not found");
     }
 
-    // Verify ownership through project
+    // Verify ownership through project when a user identity is present
     const project = await ctx.runQuery(api.projects.getProject, { projectId: image.projectId });
-    if (!project || project.userId !== user._id) {
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    if (user && project.userId !== user._id) {
       throw new Error("Access denied");
     }
 

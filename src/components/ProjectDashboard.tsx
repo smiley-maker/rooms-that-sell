@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDistanceToNow } from "date-fns";
+import { DashboardSkeleton } from "@/components/ui/skeleton";
 
 interface ProjectDashboardProps {
   onCreateProject: () => void;
@@ -77,45 +78,19 @@ export function ProjectDashboard({
   };
 
   if (projects === undefined) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Projects</h1>
-          <Button disabled>
-            <Plus className="h-4 w-4 mr-2" />
-            New Project
-          </Button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="pb-3">
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="h-3 bg-gray-200 rounded"></div>
-                  <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Projects</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold">Projects</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage your property listings and virtual staging projects
           </p>
         </div>
-        <Button onClick={onCreateProject}>
+        <Button onClick={onCreateProject} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
           New Project
         </Button>
@@ -136,7 +111,7 @@ export function ProjectDashboard({
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {projects.map((project: Project) => (
             <Card 
               key={project._id} 
@@ -146,10 +121,10 @@ export function ProjectDashboard({
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1 flex-1 min-w-0">
-                    <CardTitle className="text-lg truncate">
+                    <CardTitle className="text-base sm:text-lg truncate">
                       {project.name}
                     </CardTitle>
-                    <div className="flex items-center text-sm text-muted-foreground">
+                    <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
                       <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
                       <span className="truncate">{project.address}</span>
                     </div>
@@ -177,45 +152,49 @@ export function ProjectDashboard({
                   </DropdownMenu>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-2">
+              <CardContent className="space-y-3 sm:space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge 
                     variant="secondary" 
-                    className={getListingTypeColor(project.listingType)}
+                    className={`text-xs ${getListingTypeColor(project.listingType)}`}
                   >
                     {project.listingType.charAt(0).toUpperCase() + project.listingType.slice(1)}
                   </Badge>
                   <Badge 
                     variant="secondary" 
-                    className={getStatusColor(project.status)}
+                    className={`text-xs ${getStatusColor(project.status)}`}
                   >
                     <span className="flex items-center gap-1">
                       {getStatusIcon(project.status)}
-                      {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                      <span className="hidden sm:inline">
+                        {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                      </span>
                     </span>
                   </Badge>
                 </div>
 
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
+                  <div className="flex items-center gap-3 sm:gap-4">
                     <span className="flex items-center gap-1">
-                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                      {project.imageCount || 0}
+                      <ImageIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+                      <span className="text-xs sm:text-sm">{project.imageCount || 0}</span>
                     </span>
                     <span className="flex items-center gap-1">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      {project.stagedCount || 0}
+                      <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                      <span className="text-xs sm:text-sm">{project.stagedCount || 0}</span>
                     </span>
                   </div>
                 </div>
 
                 <div className="flex items-center text-xs text-muted-foreground">
                   <Calendar className="h-3 w-3 mr-1" />
-                  Created {formatDistanceToNow(new Date(project.createdAt), { addSuffix: true })}
+                  <span className="truncate">
+                    Created {formatDistanceToNow(new Date(project.createdAt), { addSuffix: true })}
+                  </span>
                 </div>
 
                 {project.notes && (
-                  <p className="text-sm text-muted-foreground line-clamp-2">
+                  <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                     {project.notes}
                   </p>
                 )}

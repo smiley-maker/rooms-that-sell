@@ -83,10 +83,10 @@ export function ImageReviewSystem({ projectId }: ImageReviewSystemProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Image Review & Approval</h2>
-          <p className="text-gray-600">
+          <h2 className="text-xl sm:text-2xl font-bold">Image Review & Approval</h2>
+          <p className="text-sm sm:text-base text-gray-600">
             Review staged images and approve them for export
           </p>
         </div>
@@ -95,14 +95,17 @@ export function ImageReviewSystem({ projectId }: ImageReviewSystemProps) {
             variant={viewMode === "gallery" ? "default" : "outline"}
             size="sm"
             onClick={() => setViewMode("gallery")}
+            className="flex-1 sm:flex-none"
           >
             <Grid3X3 className="w-4 h-4 mr-1" />
-            Gallery
+            <span className="hidden sm:inline">Gallery</span>
+            <span className="sm:hidden">Grid</span>
           </Button>
           <Button
             variant={viewMode === "kanban" ? "default" : "outline"}
             size="sm"
             onClick={() => setViewMode("kanban")}
+            className="flex-1 sm:flex-none"
           >
             <Kanban className="w-4 h-4 mr-1" />
             Kanban
@@ -140,7 +143,7 @@ export function ImageReviewSystem({ projectId }: ImageReviewSystemProps) {
 
       <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "gallery" | "kanban")}>
         <TabsContent value="gallery" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {stagedImages.map((image: Image) => (
               <Card key={image._id} className="overflow-hidden">
                 <div className="aspect-square bg-gray-100 relative">
@@ -154,16 +157,16 @@ export function ImageReviewSystem({ projectId }: ImageReviewSystemProps) {
                     <Badge className={getStatusColor(image.status)}>
                       <span className="flex items-center gap-1">
                         {getStatusIcon(image.status)}
-                        {image.status}
+                        <span className="hidden sm:inline">{image.status}</span>
                       </span>
                     </Badge>
                   </div>
                 </div>
-                <CardContent className="p-4">
-                  <h3 className="font-medium truncate mb-2" title={image.filename}>
+                <CardContent className="p-3 sm:p-4">
+                  <h3 className="font-medium truncate mb-2 text-sm sm:text-base" title={image.filename}>
                     {image.filename}
                   </h3>
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-3">
                     <Badge variant="outline" className="text-xs">
                       {image.roomType.replace('_', ' ')}
                     </Badge>
@@ -187,7 +190,8 @@ export function ImageReviewSystem({ projectId }: ImageReviewSystemProps) {
                     onClick={() => handleImageSelect(image._id)}
                   >
                     <Eye className="w-4 h-4 mr-1" />
-                    View Details
+                    <span className="hidden sm:inline">View Details</span>
+                    <span className="sm:hidden">Details</span>
                   </Button>
                 </CardContent>
               </Card>
@@ -196,7 +200,7 @@ export function ImageReviewSystem({ projectId }: ImageReviewSystemProps) {
         </TabsContent>
 
         <TabsContent value="kanban" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Staged Column */}
             <Card>
               <CardHeader>

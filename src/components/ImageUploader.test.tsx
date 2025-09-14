@@ -43,7 +43,7 @@ describe('ImageUploader', () => {
     renderImageUploader();
     
     expect(screen.getByText('Drag & drop images here')).toBeInTheDocument();
-    expect(screen.getByText('or click to select files (JPEG, PNG, WebP up to 10MB each)')).toBeInTheDocument();
+    expect(screen.getByText('or tap to select files (JPEG, PNG, WebP up to 10MB each)')).toBeInTheDocument();
   });
 
   it('validates file types correctly', () => {

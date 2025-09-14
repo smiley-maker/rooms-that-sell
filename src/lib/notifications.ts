@@ -25,10 +25,7 @@ export class NotificationService {
       description: options?.description,
       duration: options?.duration || 4000,
       dismissible: options?.dismissible ?? true,
-      action: options?.action ? {
-        label: options.action.label,
-        onClick: options.action.onClick,
-      } : undefined,
+      action: options?.action,
     });
   }
 
@@ -48,8 +45,10 @@ export class NotificationService {
       message = error.userMessage;
       description = options?.description;
       
-      // Add retry action for retryable errors
-      if (error.retryable && !options?.action) {
+      // Use the action from options if provided, otherwise add retry action for retryable errors
+      if (options?.action) {
+        action = options.action;
+      } else if (error.retryable) {
         action = {
           label: "Retry",
           onClick: () => {
@@ -76,10 +75,7 @@ export class NotificationService {
       description: options?.description,
       duration: options?.duration || 5000,
       dismissible: options?.dismissible ?? true,
-      action: options?.action ? {
-        label: options.action.label,
-        onClick: options.action.onClick,
-      } : undefined,
+      action: options?.action,
     });
   }
 
@@ -91,10 +87,7 @@ export class NotificationService {
       description: options?.description,
       duration: options?.duration || 4000,
       dismissible: options?.dismissible ?? true,
-      action: options?.action ? {
-        label: options.action.label,
-        onClick: options.action.onClick,
-      } : undefined,
+      action: options?.action,
     });
   }
 

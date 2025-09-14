@@ -7,15 +7,11 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Progress } from "./ui/progress";
 import { Alert, AlertDescription } from "./ui/alert";
-import { LoadingOverlay } from "./ui/loading-spinner";
-import { UploadProgress } from "./ui/progress-indicator";
 import { useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { useUploadOperation } from "@/hooks/useAsyncOperation";
-import { useUploadProgress } from "@/hooks/useLoadingState";
 import { useNotifications } from "@/lib/notifications";
-import { AppErrorHandler, ErrorCode } from "@/lib/errors";
+import { AppErrorHandler, ErrorCode, AppError } from "@/lib/errors";
 import { withUploadRetry } from "@/lib/retry";
 
 interface UploadFile {
@@ -111,9 +107,10 @@ export function ImageUploader({
     return "unknown";
   };
 
+  const notifications = useNotifications();
+
   // Upload single file with enhanced error handling
   const uploadFile = async (uploadFile: UploadFile): Promise<void> => {
-    const notifications = useNotifications();
     
     try {
       // Update status to uploading
@@ -153,6 +150,7 @@ export function ImageUploader({
           headers: {
             'Content-Type': uploadFile.file.type,
           },
+          signal: abortControllerRef.current?.signal,
         });
 
         // Add timeout to upload
@@ -220,7 +218,7 @@ export function ImageUploader({
       }, {
         maxAttempts: 3,
         baseDelay: 2000,
-        onRetry: (attempt, error) => {
+        onRetry: (attempt) => {
           notifications.info(`Retrying upload for ${uploadFile.file.name}`, {
             description: `Attempt ${attempt} of 3`,
           });
@@ -228,9 +226,9 @@ export function ImageUploader({
       });
 
     } catch (error) {
-      let appError;
+      let appError: AppError;
       if (error && typeof error === "object" && "code" in error) {
-        appError = error;
+        appError = error as AppError;
       } else {
         appError = AppErrorHandler.createError(
           ErrorCode.IMAGE_UPLOAD_FAILED,
@@ -252,8 +250,6 @@ export function ImageUploader({
   // Upload all files with enhanced error handling
   const uploadAllFiles = async () => {
     if (uploadFiles.length === 0) return;
-
-    const notifications = useNotifications();
     setIsUploading(true);
     abortControllerRef.current = new AbortController();
 
@@ -280,9 +276,9 @@ export function ImageUploader({
           notifications.loading(`Uploading files...`, {
             description: `${completed + failed} of ${pendingFiles.length} processed`,
           });
-        } catch (error) {
+        } catch (uploadError) {
           failed++;
-          console.error(`Upload failed for ${file.file.name}:`, error);
+          console.error(`Upload failed for ${file.file.name}:`, uploadError);
         }
       }
 
@@ -300,8 +296,8 @@ export function ImageUploader({
       if (completedImages.length > 0 && onUploadComplete) {
         onUploadComplete(completedImages);
       }
-    } catch (error) {
-      const appError = AppErrorHandler.fromConvexError(error);
+    } catch (batchError) {
+      const appError = AppErrorHandler.fromConvexError(batchError);
       notifications.handleError(appError, () => uploadAllFiles());
     } finally {
       setIsUploading(false);
@@ -312,7 +308,7 @@ export function ImageUploader({
   // Handle file drop
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles: UploadFile[] = acceptedFiles
-      .slice(0, maxFiles - uploadFiles.length)
+      .slice(0, Math.max(0, maxFiles - uploadFiles.length))
       .map(file => {
         const validation = validateFile(file);
         return {
@@ -345,8 +341,9 @@ export function ImageUploader({
     // Upload the file
     try {
       await uploadFile(file);
-    } catch (error) {
+    } catch (retryError) {
       // Error is already handled in uploadFile
+      console.error('Retry failed:', retryError);
     }
   };
 
@@ -371,7 +368,7 @@ export function ImageUploader({
       "image/png": [".png"],
       "image/webp": [".webp"],
     },
-    maxFiles: maxFiles - uploadFiles.length,
+    maxFiles,
     disabled: isUploading,
   });
 
@@ -383,22 +380,22 @@ export function ImageUploader({
     <div className={`space-y-4 ${className}`}>
       {/* Drop Zone */}
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div
             {...getRootProps()}
             className={`
-              border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
+              border-2 border-dashed rounded-lg p-4 sm:p-8 text-center cursor-pointer transition-colors
               ${isDragActive ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-gray-400"}
               ${isUploading ? "opacity-50 cursor-not-allowed" : ""}
             `}
           >
             <input {...getInputProps()} />
-            <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-lg font-medium text-gray-900 mb-2">
+            <Upload className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mb-2 sm:mb-4" />
+            <p className="text-base sm:text-lg font-medium text-gray-900 mb-1 sm:mb-2">
               {isDragActive ? "Drop images here" : "Drag & drop images here"}
             </p>
-            <p className="text-sm text-gray-500 mb-4">
-              or click to select files (JPEG, PNG, WebP up to 10MB each)
+            <p className="text-xs sm:text-sm text-gray-500 mb-2 sm:mb-4 px-2">
+              or tap to select files (JPEG, PNG, WebP up to 10MB each)
             </p>
             <p className="text-xs text-gray-400">
               Maximum {maxFiles} files • {uploadFiles.length} selected
@@ -411,22 +408,27 @@ export function ImageUploader({
       {uploadFiles.length > 0 && (
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <h3 className="font-medium">Upload Progress</h3>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {pendingCount > 0 && (
                   <Button
                     onClick={uploadAllFiles}
                     disabled={isUploading}
                     size="sm"
+                    className="flex-1 sm:flex-none"
                   >
                     {isUploading ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Uploading...
+                        <span className="hidden sm:inline">Uploading...</span>
+                        <span className="sm:hidden">Uploading</span>
                       </>
                     ) : (
-                      `Upload ${pendingCount} files`
+                      <>
+                        <span className="hidden sm:inline">Upload {pendingCount} files</span>
+                        <span className="sm:hidden">Upload ({pendingCount})</span>
+                      </>
                     )}
                   </Button>
                 )}
@@ -437,7 +439,8 @@ export function ImageUploader({
                 )}
                 {completedCount > 0 && !isUploading && (
                   <Button onClick={clearCompleted} variant="outline" size="sm">
-                    Clear Completed
+                    <span className="hidden sm:inline">Clear Completed</span>
+                    <span className="sm:hidden">Clear</span>
                   </Button>
                 )}
               </div>
@@ -448,7 +451,7 @@ export function ImageUploader({
               {uploadFiles.map((uploadFile) => (
                 <div
                   key={uploadFile.id}
-                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+                  className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-gray-50 rounded-lg"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">
@@ -460,63 +463,65 @@ export function ImageUploader({
                   </div>
 
                   {/* Status */}
-                  <div className="flex items-center gap-2">
-                    {uploadFile.status === "pending" && (
-                      <span className="text-xs text-gray-500">Ready</span>
-                    )}
-                    {uploadFile.status === "uploading" && (
-                      <div className="flex items-center gap-2">
-                        <Progress value={uploadFile.progress} className="w-20" />
-                        <span className="text-xs text-blue-600">
-                          {uploadFile.progress}%
-                        </span>
-                      </div>
-                    )}
-                    {uploadFile.status === "processing" && (
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                        <span className="text-xs text-blue-600">Processing</span>
-                      </div>
-                    )}
-                    {uploadFile.status === "completed" && (
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                    )}
-                    {uploadFile.status === "error" && (
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="w-5 h-5 text-red-600" />
-                        {uploadFile.error && (
-                          <span className="text-xs text-red-600 max-w-32 truncate" title={uploadFile.error}>
-                            {uploadFile.error}
+                  <div className="flex items-center justify-between sm:justify-end gap-2">
+                    <div className="flex items-center gap-2">
+                      {uploadFile.status === "pending" && (
+                        <span className="text-xs text-gray-500">Ready</span>
+                      )}
+                      {uploadFile.status === "uploading" && (
+                        <div className="flex items-center gap-2">
+                          <Progress value={uploadFile.progress} className="w-16 sm:w-20" />
+                          <span className="text-xs text-blue-600">
+                            {uploadFile.progress}%
                           </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                        </div>
+                      )}
+                      {uploadFile.status === "processing" && (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                          <span className="text-xs text-blue-600 hidden sm:inline">Processing</span>
+                        </div>
+                      )}
+                      {uploadFile.status === "completed" && (
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                      )}
+                      {uploadFile.status === "error" && (
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-5 h-5 text-red-600" />
+                          {uploadFile.error && (
+                            <span className="text-xs text-red-600 max-w-24 sm:max-w-32 truncate" title={uploadFile.error}>
+                              {uploadFile.error}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-1">
-                    {uploadFile.status === "error" && !isUploading && (
-                      <Button
-                        onClick={() => retryFile(uploadFile.id)}
-                        variant="ghost"
-                        size="sm"
-                        className="p-1 h-auto"
-                        title="Retry upload"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </Button>
-                    )}
-                    {!isUploading && (
-                      <Button
-                        onClick={() => removeFile(uploadFile.id)}
-                        variant="ghost"
-                        size="sm"
-                        className="p-1 h-auto"
-                        title="Remove file"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    )}
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-1">
+                      {uploadFile.status === "error" && !isUploading && (
+                        <Button
+                          onClick={() => retryFile(uploadFile.id)}
+                          variant="ghost"
+                          size="sm"
+                          className="p-1 h-auto"
+                          title="Retry upload"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {!isUploading && (
+                        <Button
+                          onClick={() => removeFile(uploadFile.id)}
+                          variant="ghost"
+                          size="sm"
+                          className="p-1 h-auto"
+                          title="Remove file"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

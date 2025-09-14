@@ -7,14 +7,16 @@ const crons = cronJobs();
 crons.interval(
   "process-stuck-jobs",
   { minutes: 5 },
-  api.stagingJobsSimple.processStuckJobs
+  api.stagingJobs.processStuckJobs
 );
 
-// Run every hour to clean up old completed jobs (optional)
+// Run every 10 minutes to check for stuck processing jobs
 crons.interval(
-  "cleanup-old-jobs",
-  { hours: 1 },
-  api.stagingJobsSimple.cleanupOldJobs
+  "process-stuck-processing-jobs",
+  { minutes: 10 },
+  api.stagingJobs.processStuckJobs
 );
+
+// Note: Cleanup functionality can be added to main stagingJobs module if needed
 
 export default crons;

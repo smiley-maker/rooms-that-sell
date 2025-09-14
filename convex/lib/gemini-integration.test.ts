@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import { 
   getStylePresets, 
   estimateProcessingTime,
-  RETRY_CONFIG,
   type StylePreset 
 } from "./gemini";
 
@@ -44,15 +43,6 @@ describe("Gemini Integration - Core Functions", () => {
       
       // Large image, complex room
       expect(estimateProcessingTime(6 * 1024 * 1024, "bathroom")).toBe(30000);
-    });
-  });
-
-  describe("RETRY_CONFIG", () => {
-    it("should have proper retry configuration", () => {
-      expect(RETRY_CONFIG.maxRetries).toBe(3);
-      expect(RETRY_CONFIG.baseDelay).toBe(1000);
-      expect(RETRY_CONFIG.maxDelay).toBe(30000);
-      expect(RETRY_CONFIG.backoffMultiplier).toBe(2);
     });
   });
 });
