@@ -261,7 +261,7 @@ Example response:
         issues: validation.issues || [],
         confidence: validation.confidence || 0,
       };
-    } catch (parseError) {
+    } catch {
       console.error("Failed to parse validation response:", text);
       return {
         isValid: false,

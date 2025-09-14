@@ -817,7 +817,7 @@ export const getProjectImagesByStatus = query({
     }
 
     // Get images for the project
-    let query = ctx.db
+    const query = ctx.db
       .query("images")
       .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId));
 

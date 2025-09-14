@@ -20,6 +20,8 @@ const eslintConfig = [
       "next-env.d.ts",
       "**/*.test.ts",
       "**/*.test.tsx",
+      "convex/_generated/**",
+      "coverage/**",
     ],
   },
 ];

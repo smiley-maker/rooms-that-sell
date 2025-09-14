@@ -37,7 +37,7 @@ export const createStagingJob = mutation({
     }
 
     // Verify all images belong to the project and user
-    const images = await Promise.all(
+    await Promise.all(
       args.imageIds.map(async (imageId) => {
         const image = await ctx.db.get(imageId);
         if (!image || image.projectId !== args.projectId || image.userId !== user._id) {
@@ -445,7 +445,7 @@ export const updateStagingJobStatus = mutation({
     completedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const updateData: any = {
+    const updateData: { status: string; updatedAt: number; completedAt?: number } = {
       status: args.status,
       updatedAt: Date.now(),
     };
@@ -553,7 +553,7 @@ export const cancelStagingJob = mutation({
  */
 export const getStylePresets = query({
   args: {},
-  handler: async (ctx, args) => {
+  handler: async () => {
     // Import the getStylePresets function from the Gemini utility
     const { getStylePresets } = await import("./lib/gemini");
     return getStylePresets();

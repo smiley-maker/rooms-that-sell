@@ -1,4 +1,3 @@
-import { v } from "convex/values";
 
 /**
  * MLS Compliance utilities for virtual staging
@@ -227,7 +226,7 @@ Respond with a JSON object:
         warnings: validation.warnings || [],
         confidence: validation.confidence || 0,
       };
-    } catch (parseError) {
+    } catch {
       console.error('Failed to parse validation response:', text);
       return {
         isCompliant: false,

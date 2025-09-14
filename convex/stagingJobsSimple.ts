@@ -37,7 +37,7 @@ export const createStagingJob = mutation({
     }
 
     // Verify all images belong to the project and user
-    const images = await Promise.all(
+    await Promise.all(
       args.imageIds.map(async (imageId) => {
         const image = await ctx.db.get(imageId);
         if (!image || image.projectId !== args.projectId || image.userId !== user._id) {
@@ -482,7 +482,7 @@ export const updateStagingJobStatus = mutation({
     completedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const updateData: any = {
+    const updateData: { status: string; completedAt?: number } = {
       status: args.status,
     };
 
@@ -526,7 +526,7 @@ export const processStuckJobs = action({
     const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
     const allJobs = await ctx.runQuery(api.stagingJobsSimple.getAllQueuedJobs);
     
-    const stuckJobs = allJobs.filter((job: any) => 
+    const stuckJobs = allJobs.filter((job: { status: string; createdAt: number }) => 
       job.status === "queued" && job.createdAt < fiveMinutesAgo
     );
     
@@ -667,7 +667,7 @@ export const testStagingWorkflow = action({
     
     try {
       // Get the image
-      const image: any = await ctx.runQuery(api.images.getImageById, { imageId: args.imageId });
+      const image = await ctx.runQuery(api.images.getImageById, { imageId: args.imageId });
       if (!image) {
         throw new Error("Image not found");
       }

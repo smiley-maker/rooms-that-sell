@@ -111,7 +111,7 @@ describe("Gemini AI Integration", () => {
     beforeEach(() => {
       // Mock validation response with proper JSON
       const { GoogleGenerativeAI } = require("@google/generative-ai");
-      GoogleGenerativeAI.mockImplementation(() => ({
+      const mockInstance = {
         getGenerativeModel: vi.fn().mockReturnValue({
           generateContent: vi.fn().mockResolvedValue({
             response: {
@@ -124,7 +124,10 @@ describe("Gemini AI Integration", () => {
             }
           })
         })
-      }));
+      };
+      
+      // Mock the constructor
+      GoogleGenerativeAI.mockImplementation(() => mockInstance);
     });
 
     it("should validate a suitable image", async () => {

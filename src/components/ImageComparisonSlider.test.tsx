@@ -72,8 +72,10 @@ describe('ImageComparisonSlider', () => {
   it('has draggable slider handle', () => {
     renderComponent();
     
-    const sliderHandle = screen.getByRole('generic', { hidden: true });
+    // Find the slider handle by looking for the Move icon (which is inside the slider handle)
+    const sliderHandle = screen.getByRole('img', { hidden: true }); // The Move icon
     expect(sliderHandle).toBeInTheDocument();
+    expect(sliderHandle.closest('.cursor-ew-resize')).toBeInTheDocument();
   });
 
   it('applies custom className', () => {

@@ -3,15 +3,11 @@ import { mutation, query, action } from "./_generated/server";
 import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import {
-  checkMLSCompliance,
-  validateStructuralPreservation,
   applyWatermark,
-  generateMLSExportPackage,
   DEFAULT_WATERMARK,
   MLS_EXPORT_RESOLUTIONS,
   getMLSComplianceGuidelines,
   type WatermarkOptions,
-  type ExportOptions,
 } from "./lib/mlsCompliance";
 
 /**
@@ -374,7 +370,7 @@ export const createMLSExport = action({
       })),
     }),
   },
-  handler: async (ctx, args): Promise<any> => {
+  handler: async (ctx, args): Promise<{ success: boolean; message?: string; exportId?: string; exports?: Array<{ type: string; filename: string; resolution: string; url: string }>; complianceValidated?: boolean; complianceIssues?: Array<{ type: string; message: string }>; totalFiles?: number }> => {
     // Get current user
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
@@ -458,7 +454,7 @@ export const createMLSExport = action({
                 allCompliant = false;
                 complianceIssues.push(`${image.filename}: ${complianceResult.violations.join(', ')}`);
               }
-            } catch (error) {
+            } catch {
               allCompliant = false;
               complianceIssues.push(`${image.filename}: Validation failed`);
             }
@@ -550,7 +546,7 @@ export const createMLSExport = action({
         exportId,
         exports: flatExports,
         complianceValidated: allCompliant,
-        complianceIssues: complianceIssues,
+        complianceIssues: complianceIssues.map(issue => ({ type: 'compliance', message: issue })),
         totalFiles: flatExports.length,
       };
 
@@ -648,14 +644,15 @@ export const updateExportRecord = mutation({
     completedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const updateData: any = {
+    const updateData: { status: string; exportUrls: Array<{ type: string; filename: string; resolution: string; url: string }>; updatedAt: number; complianceValidated?: boolean; completedAt?: number } = {
       status: args.status,
       exportUrls: args.exports.map(exp => ({
         type: exp.type,
+        filename: exp.filename || `${exp.type}.jpg`,
         resolution: exp.resolution,
         url: exp.url,
-        filename: exp.filename,
       })),
+      updatedAt: Date.now(),
       complianceValidated: args.complianceValidated,
     };
 
@@ -797,7 +794,7 @@ export const getProjectComplianceStatus = query({
  */
 export const getComplianceGuidelines = query({
   args: {},
-  handler: async (ctx, args) => {
+  handler: async () => {
     return getMLSComplianceGuidelines();
   },
 });
@@ -807,7 +804,7 @@ export const getComplianceGuidelines = query({
  */
 export const getExportResolutions = query({
   args: {},
-  handler: async (ctx, args) => {
+  handler: async () => {
     return MLS_EXPORT_RESOLUTIONS;
   },
 });
@@ -819,7 +816,7 @@ export const batchValidateCompliance = action({
   args: {
     imageIds: v.array(v.id("images")),
   },
-  handler: async (ctx, args): Promise<any[]> => {
+  handler: async (ctx, args): Promise<Array<{ imageId: string; success: boolean; compliance: { isCompliant: boolean; score: number; violations: string[]; warnings: string[]; recommendations: string[] }; structural: { isCompliant: boolean; violations: string[]; warnings: string[]; confidence: number } } | { imageId: string; success: boolean; error: string }>> => {
     // Get current user
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {

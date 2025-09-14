@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useQuery, useMutation, useAction } from 'convex/react';
+import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import {
@@ -24,7 +24,6 @@ import { Separator } from './ui/separator';
 import { 
   Download, 
   AlertTriangle, 
-  CheckCircle, 
   Settings,
   FileImage,
   Palette
@@ -66,7 +65,6 @@ export function MLSExportDialog({
   // Queries
   const projectImages = useQuery(api.images.getProjectImages, { projectId });
   const exportResolutions = useQuery(api.mlsCompliance.getExportResolutions);
-  const complianceStatus = useQuery(api.mlsCompliance.getProjectComplianceStatus, { projectId });
 
   // Actions
   // Actions
@@ -235,7 +233,7 @@ export function MLSExportDialog({
                   Watermark Settings
                 </CardTitle>
                 <CardDescription>
-                  Configure the "Virtually Staged" watermark for MLS compliance
+                  Configure the &quot;Virtually Staged&quot; watermark for MLS compliance
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -256,9 +254,9 @@ export function MLSExportDialog({
                     <Label htmlFor="watermark-position">Position</Label>
                     <Select
                       value={watermarkSettings.position}
-                      onValueChange={(value: any) => setWatermarkSettings(prev => ({
+                      onValueChange={(value: string) => setWatermarkSettings(prev => ({
                         ...prev,
-                        position: value
+                        position: value as "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center"
                       }))}
                     >
                       <SelectTrigger>

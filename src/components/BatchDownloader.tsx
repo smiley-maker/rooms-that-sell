@@ -6,7 +6,6 @@ import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 import { Alert, AlertDescription } from './ui/alert';
 import { Checkbox } from './ui/checkbox';
@@ -14,7 +13,6 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { 
   Download, 
-  FileImage, 
   Archive, 
   CheckCircle, 
   AlertTriangle,

@@ -52,8 +52,8 @@ vi.mock('convex/react', async () => {
   const actual = await vi.importActual('convex/react');
   return {
     ...actual,
-    useQuery: mockUseQuery,
-    useMutation: mockUseMutation,
+    useQuery: vi.fn(),
+    useMutation: vi.fn(),
   };
 });
 
@@ -72,8 +72,11 @@ describe('BatchProcessor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     
+    // Get the mocked functions
+    const convexReact = require('convex/react');
+    
     // Setup mock implementations
-    mockUseQuery.mockImplementation((query: any) => {
+    convexReact.useQuery.mockImplementation((query: any) => {
       if (query.toString().includes('getProjectImages')) {
         return mockImages;
       }
@@ -86,7 +89,7 @@ describe('BatchProcessor', () => {
       return null;
     });
     
-    mockUseMutation.mockImplementation((mutation: any) => {
+    convexReact.useMutation.mockImplementation((mutation: any) => {
       if (mutation.toString().includes('createStagingJob')) {
         return mockCreateStagingJob;
       }
@@ -165,8 +168,11 @@ describe('BatchProcessor', () => {
   });
 
   it('shows insufficient credits warning when selection exceeds credits', () => {
+    // Get the mocked functions
+    const convexReact = require('convex/react');
+    
     // Mock user with fewer credits
-    mockUseQuery.mockImplementation((query: any) => {
+    convexReact.useQuery.mockImplementation((query: any) => {
       if (query.toString().includes('getCurrentUser')) {
         return { ...mockUser, credits: 1 }; // Only 1 credit
       }
@@ -202,8 +208,11 @@ describe('BatchProcessor', () => {
   });
 
   it('shows no images message when no stageable images available', () => {
+    // Get the mocked functions
+    const convexReact = require('convex/react');
+    
     // Mock empty images array
-    mockUseQuery.mockImplementation((query: any) => {
+    convexReact.useQuery.mockImplementation((query: any) => {
       if (query.toString().includes('getProjectImages')) {
         return []; // No images
       }

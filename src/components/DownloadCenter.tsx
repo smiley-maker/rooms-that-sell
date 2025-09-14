@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useQuery, useAction } from 'convex/react';
+import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import { Button } from './ui/button';
@@ -19,7 +19,6 @@ import {
   Clock,
   Archive,
   ExternalLink,
-  Trash2,
   RefreshCw
 } from 'lucide-react';
 
@@ -40,12 +39,9 @@ export function DownloadCenter({ projectId }: DownloadCenterProps) {
 
   // Queries
   const exports = useQuery(api.mlsCompliance.getProjectMLSExports, { projectId });
-  const projectImages = useQuery(api.images.getProjectImages, { projectId });
-
   // Actions
-  const getImageDownloadUrl = useAction(api.images.getImageDownloadUrl);
 
-  const handleDownloadFile = async (exportRecord: any, fileUrl: string, filename: string) => {
+  const handleDownloadFile = async (exportRecord: { _id: string }, fileUrl: string, filename: string) => {
     const downloadId = `${exportRecord._id}-${filename}`;
     
     setDownloadProgress(prev => ({
@@ -100,7 +96,7 @@ export function DownloadCenter({ projectId }: DownloadCenterProps) {
     }
   };
 
-  const handleBatchDownload = async (exportRecord: any) => {
+  const handleBatchDownload = async (exportRecord: { _id: string; exportUrls: Array<{ url: string; filename: string }> }) => {
     if (!exportRecord.exportUrls || exportRecord.exportUrls.length === 0) {
       alert('No files available for download');
       return;
@@ -114,7 +110,7 @@ export function DownloadCenter({ projectId }: DownloadCenterProps) {
     }
   };
 
-  const handleDownloadAsZip = async (exportRecord: any) => {
+  const handleDownloadAsZip = async (exportRecord: { _id: string; exportUrls: Array<{ url: string; filename: string }> }) => {
     if (!exportRecord.exportUrls || exportRecord.exportUrls.length === 0) {
       alert('No files available for download');
       return;
@@ -175,12 +171,6 @@ export function DownloadCenter({ projectId }: DownloadCenterProps) {
     }
   };
 
-  const formatFileSize = (sizeInBytes: number): string => {
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    if (sizeInBytes === 0) return '0 Bytes';
-    const i = Math.floor(Math.log(sizeInBytes) / Math.log(1024));
-    return Math.round(sizeInBytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
-  };
 
   const getDownloadStatus = (exportId: string, filename: string) => {
     const downloadId = `${exportId}-${filename}`;
@@ -281,7 +271,7 @@ export function DownloadCenter({ projectId }: DownloadCenterProps) {
                         <Separator />
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                          {exportRecord.exportUrls.map((file: any, index: number) => {
+                          {exportRecord.exportUrls.map((file: { url: string; filename: string; type?: string; resolution?: string }, index: number) => {
                             const downloadStatus = getDownloadStatus(exportRecord._id, file.filename);
                             return (
                               <div
@@ -293,7 +283,7 @@ export function DownloadCenter({ projectId }: DownloadCenterProps) {
                                   <div className="truncate">
                                     <div className="font-medium truncate">{file.filename}</div>
                                     <div className="text-xs text-muted-foreground">
-                                      {file.type} • {file.resolution}
+                                      {file.type || 'Unknown'} • {file.resolution || 'Unknown'}
                                     </div>
                                   </div>
                                 </div>

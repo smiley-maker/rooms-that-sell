@@ -4,11 +4,8 @@
  */
 
 import { 
-  stageImageWithGeminiRetry, 
-  validateImageForStaging, 
   getStylePresets, 
   estimateProcessingTime,
-  type StylePreset,
   type StagingOptions 
 } from "./gemini";
 

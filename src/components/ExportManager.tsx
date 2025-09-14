@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 import { Alert, AlertDescription } from './ui/alert';
-import { Separator } from './ui/separator';
 import { 
   Download, 
   FileImage, 
@@ -17,7 +16,6 @@ import {
   CheckCircle, 
   AlertTriangle,
   Clock,
-  Settings
 } from 'lucide-react';
 
 interface ExportManagerProps {
@@ -108,8 +106,8 @@ export function ExportManager({
         status: 'completed'
       });
 
-      if (onExportComplete && result.exportId) {
-        onExportComplete(result.exportId);
+      if (onExportComplete && 'exportId' in result && result.exportId) {
+        onExportComplete(result.exportId as Id<"mlsExports">);
       }
 
     } catch (error) {
@@ -136,12 +134,6 @@ export function ExportManager({
     }
   };
 
-  const formatFileSize = (bytes: number): string => {
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    if (bytes === 0) return '0 Bytes';
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
-  };
 
   return (
     <div className="space-y-6">

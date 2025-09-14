@@ -5,14 +5,10 @@ import { ConvexProvider } from 'convex/react';
 import { ConvexReactClient } from 'convex/react';
 
 // Mock Convex hooks
-const mockUseQuery = vi.fn();
-const mockUseMutation = vi.fn();
-const mockUseAction = vi.fn();
-
 vi.mock('convex/react', () => ({
-  useQuery: mockUseQuery,
-  useMutation: mockUseMutation,
-  useAction: mockUseAction,
+  useQuery: vi.fn(),
+  useMutation: vi.fn(),
+  useAction: vi.fn(),
 }));
 
 // Mock toast
@@ -86,7 +82,8 @@ describe('ImageReviewSystem', () => {
   });
 
   const renderComponent = (images = mockImages) => {
-    mockUseQuery.mockReturnValue(images);
+    const convexReact = require('convex/react');
+    convexReact.useQuery.mockReturnValue(images);
 
     return render(<ImageReviewSystem projectId="project1" />);
   };

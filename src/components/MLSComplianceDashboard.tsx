@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useQuery, useMutation, useAction } from 'convex/react';
+import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -101,7 +101,7 @@ export function MLSComplianceDashboard({ projectId }: MLSComplianceDashboardProp
       const exportOptions = {
         includeOriginal: true,
         includeStaged: true,
-        resolutions: exportResolutions?.map((r: any) => r.name) || [],
+        resolutions: exportResolutions?.map((r: { name: string }) => r.name) || [],
         watermarkOptions: {
           text: "Virtually Staged",
           position: "bottom-right",
@@ -126,7 +126,7 @@ export function MLSComplianceDashboard({ projectId }: MLSComplianceDashboardProp
       console.log('Export result:', result);
       
       // Show success message
-      alert(`Export completed! Generated ${result.totalFiles || 0} files for ${selectedImages.length} images.`);
+      alert(`Export completed! Generated ${'totalFiles' in result ? result.totalFiles : 0} files for ${selectedImages.length} images.`);
       setSelectedImages([]);
     } catch (error) {
       console.error('MLS export failed:', error);
