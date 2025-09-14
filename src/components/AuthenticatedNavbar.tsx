@@ -5,8 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
-import { Home, FolderOpen, Menu, X } from "lucide-react";
+import { Home, FolderOpen, Menu, X, CreditCard } from "lucide-react";
 import { Suspense } from "react";
+import { CreditStatus } from "./CreditStatus";
 
 function AuthenticatedNavbarContent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -17,6 +18,7 @@ function AuthenticatedNavbarContent() {
 
   const navigation = [
     { name: "Dashboard", href: "/projects", icon: FolderOpen },
+    { name: "Billing", href: "/billing", icon: CreditCard },
     { name: "Landing Page", href: "/?view=landing", icon: Home },
   ];
 
@@ -71,6 +73,7 @@ function AuthenticatedNavbarContent() {
 
           {/* User menu */}
           <div className="hidden sm:ml-6 sm:flex sm:items-center space-x-4">
+            <CreditStatus showUpgradePrompt={false} />
             <span className="text-sm text-gray-600">
               Welcome, {user?.firstName || user?.emailAddresses[0]?.emailAddress?.split('@')[0]}!
             </span>

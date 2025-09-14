@@ -19,10 +19,19 @@ const nextConfig: NextConfig = {
   },
   // Fix for chunk loading issues
   experimental: {
-    optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
+    optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react', 'convex'],
   },
   // Ensure proper webpack configuration
   webpack: (config, { dev, isServer }) => {
+    // Fix for Convex imports and chunk loading
+    config.resolve = {
+      ...config.resolve,
+      alias: {
+        ...config.resolve?.alias,
+        'convex/_generated/api': require.resolve('./convex/_generated/api'),
+      },
+    };
+
     if (dev && !isServer) {
       config.optimization = {
         ...config.optimization,
@@ -38,6 +47,12 @@ const nextConfig: NextConfig = {
               test: /[\\/]node_modules[\\/]/,
               name: 'vendors',
               priority: -10,
+              chunks: 'all',
+            },
+            convex: {
+              test: /[\\/]convex[\\/]/,
+              name: 'convex',
+              priority: 10,
               chunks: 'all',
             },
           },

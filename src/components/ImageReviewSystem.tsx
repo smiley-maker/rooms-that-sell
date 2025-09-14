@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
+import { Image } from "@/types/convex";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -33,7 +34,7 @@ export function ImageReviewSystem({ projectId }: ImageReviewSystemProps) {
   const images = useQuery(api.images.getProjectImages, { projectId });
   
   // Filter images that have been staged
-  const stagedImages = images?.filter(img => 
+  const stagedImages = images?.filter((img: Image) => 
     img.status === "staged" || img.status === "approved" || img.status === "exported"
   ) || [];
 
@@ -114,7 +115,7 @@ export function ImageReviewSystem({ projectId }: ImageReviewSystemProps) {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">
-              {stagedImages.filter(img => img.status === "staged").length}
+              {stagedImages.filter((img: Image) => img.status === "staged").length}
             </div>
             <div className="text-sm text-gray-500">Pending Review</div>
           </CardContent>
@@ -122,7 +123,7 @@ export function ImageReviewSystem({ projectId }: ImageReviewSystemProps) {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">
-              {stagedImages.filter(img => img.status === "approved").length}
+              {stagedImages.filter((img: Image) => img.status === "approved").length}
             </div>
             <div className="text-sm text-gray-500">Approved</div>
           </CardContent>
@@ -130,7 +131,7 @@ export function ImageReviewSystem({ projectId }: ImageReviewSystemProps) {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">
-              {stagedImages.filter(img => img.status === "exported").length}
+              {stagedImages.filter((img: Image) => img.status === "exported").length}
             </div>
             <div className="text-sm text-gray-500">Exported</div>
           </CardContent>
@@ -140,7 +141,7 @@ export function ImageReviewSystem({ projectId }: ImageReviewSystemProps) {
       <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "gallery" | "kanban")}>
         <TabsContent value="gallery" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {stagedImages.map((image) => (
+            {stagedImages.map((image: Image) => (
               <Card key={image._id} className="overflow-hidden">
                 <div className="aspect-square bg-gray-100 relative">
                   <ImageComparisonSlider
@@ -201,13 +202,13 @@ export function ImageReviewSystem({ projectId }: ImageReviewSystemProps) {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Eye className="w-5 h-5 text-blue-600" />
-                  Staged ({stagedImages.filter(img => img.status === "staged").length})
+                  Staged ({stagedImages.filter((img: Image) => img.status === "staged").length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {stagedImages
-                  .filter(img => img.status === "staged")
-                  .map((image) => (
+                  .filter((img: Image) => img.status === "staged")
+                  .map((image: Image) => (
                     <Card key={image._id} className="cursor-pointer hover:shadow-md transition-shadow">
                       <CardContent className="p-3">
                         <div className="aspect-video bg-gray-100 rounded mb-2 overflow-hidden">
@@ -241,13 +242,13 @@ export function ImageReviewSystem({ projectId }: ImageReviewSystemProps) {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-green-600" />
-                  Approved ({stagedImages.filter(img => img.status === "approved").length})
+                  Approved ({stagedImages.filter((img: Image) => img.status === "approved").length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {stagedImages
-                  .filter(img => img.status === "approved")
-                  .map((image) => (
+                  .filter((img: Image) => img.status === "approved")
+                  .map((image: Image) => (
                     <Card key={image._id} className="cursor-pointer hover:shadow-md transition-shadow">
                       <CardContent className="p-3">
                         <div className="aspect-video bg-gray-100 rounded mb-2 overflow-hidden">
@@ -281,13 +282,13 @@ export function ImageReviewSystem({ projectId }: ImageReviewSystemProps) {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Download className="w-5 h-5 text-purple-600" />
-                  Exported ({stagedImages.filter(img => img.status === "exported").length})
+                  Exported ({stagedImages.filter((img: Image) => img.status === "exported").length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {stagedImages
-                  .filter(img => img.status === "exported")
-                  .map((image) => (
+                  .filter((img: Image) => img.status === "exported")
+                  .map((image: Image) => (
                     <Card key={image._id} className="cursor-pointer hover:shadow-md transition-shadow">
                       <CardContent className="p-3">
                         <div className="aspect-video bg-gray-100 rounded mb-2 overflow-hidden">

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, act, waitFor } from '@testing-library/react';
 import { ImageDisplay } from './ImageDisplay';
 import { ConvexProvider } from 'convex/react';
 import { ConvexReactClient } from 'convex/react';
@@ -9,16 +9,21 @@ import { Id } from '../../convex/_generated/dataModel';
 const mockConvex = new ConvexReactClient('https://test.convex.cloud');
 
 // Mock the action
+const mockGetImageDownloadUrl = vi.fn();
 vi.mock('convex/react', async () => {
   const actual = await vi.importActual('convex/react');
   return {
     ...actual,
-    useAction: vi.fn(() => vi.fn().mockResolvedValue('https://example.com/image.jpg')),
+    useAction: vi.fn(() => mockGetImageDownloadUrl),
   };
 });
 
 describe('ImageDisplay', () => {
   const mockImageId = 'test-image-id' as Id<"images">;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   const renderImageDisplay = (props = {}) => {
     return render(
@@ -33,22 +38,40 @@ describe('ImageDisplay', () => {
     );
   };
 
-  it('renders loading state initially', () => {
-    renderImageDisplay();
+  it('renders loading state initially', async () => {
+    // Mock the action to resolve after a delay to test loading state
+    mockGetImageDownloadUrl.mockImplementation(() => 
+      new Promise(resolve => setTimeout(() => resolve('https://example.com/image.jpg'), 100))
+    );
+
+    const { container } = renderImageDisplay();
     
-    // Should show loading spinner (Loader2 icon)
-    expect(document.querySelector('.animate-spin')).toBeInTheDocument();
+    // Should show loading spinner initially
+    expect(container.querySelector('.animate-spin')).toBeInTheDocument();
+    
+    // Wait for the image to load
+    await waitFor(() => {
+      expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
+    }, { timeout: 200 });
   });
 
-  it('handles different image states', () => {
-    renderImageDisplay({ isStaged: true });
+  it('handles different image states', async () => {
+    mockGetImageDownloadUrl.mockResolvedValue('https://example.com/image.jpg');
+
+    await act(async () => {
+      renderImageDisplay({ isStaged: true });
+    });
     
     // Component should render without crashing
     expect(document.body).toBeInTheDocument();
   });
 
-  it('applies custom className', () => {
-    const { container } = renderImageDisplay();
+  it('applies custom className', async () => {
+    mockGetImageDownloadUrl.mockResolvedValue('https://example.com/image.jpg');
+
+    const { container } = await act(async () => {
+      return renderImageDisplay();
+    });
     
     // Should have the custom class applied
     const loadingDiv = container.querySelector('.w-32.h-32');

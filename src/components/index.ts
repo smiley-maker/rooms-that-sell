@@ -6,6 +6,7 @@ export { CoreFeatures3Up } from './CoreFeatures3Up';
 export { Providers } from './providers';
 export { ClientNavigation } from './ClientNavigation';
 export { AuthenticatedNavbar } from './AuthenticatedNavbar';
+export { AuthGuard } from './AuthGuard';
 
 // Project Management Components
 export { ProjectDashboard } from './ProjectDashboard';
@@ -32,3 +33,7 @@ export { ImageReviewSystem } from './ImageReviewSystem';
 export { ImageComparisonSlider } from './ImageComparisonSlider';
 export { ImageApprovalWorkflow } from './ImageApprovalWorkflow';
 export { ImageDetailViewer } from './ImageDetailViewer';
+
+// Billing & Credit Components
+export { BillingDashboard } from './BillingDashboard';
+export { CreditStatus } from './CreditStatus';

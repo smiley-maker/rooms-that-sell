@@ -100,7 +100,7 @@ export const updateUserPlan = mutation({
   },
 });
 
-// Deduct credits from user account
+// Deduct credits from user account with enhanced validation
 export const deductCredits = mutation({
   args: {
     userId: v.id("users"),
@@ -109,18 +109,24 @@ export const deductCredits = mutation({
     relatedJobId: v.optional(v.id("stagingJobs")),
   },
   handler: async (ctx, args) => {
+    if (args.amount <= 0) {
+      throw new Error("Credit amount must be positive");
+    }
+
     const user = await ctx.db.get(args.userId);
     if (!user) {
       throw new Error("User not found");
     }
 
     if (user.credits < args.amount) {
-      throw new Error("Insufficient credits");
+      throw new Error(`Insufficient credits. Required: ${args.amount}, Available: ${user.credits}`);
     }
+
+    const newBalance = user.credits - args.amount;
 
     // Update user credits
     await ctx.db.patch(args.userId, {
-      credits: user.credits - args.amount,
+      credits: newBalance,
     });
 
     // Record credit transaction
@@ -133,7 +139,11 @@ export const deductCredits = mutation({
       createdAt: Date.now(),
     });
 
-    return user.credits - args.amount;
+    return {
+      newBalance,
+      isLowBalance: newBalance <= 5, // Flag for low balance notifications
+      isZeroBalance: newBalance === 0,
+    };
   },
 });
 
@@ -208,5 +218,48 @@ export const getCreditHistory = query({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .order("desc")
       .collect();
+  },
+});
+
+// Check if user has sufficient credits for an operation
+export const checkSufficientCredits = query({
+  args: {
+    userId: v.id("users"),
+    requiredCredits: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      return { sufficient: false, currentCredits: 0, message: "User not found" };
+    }
+
+    const sufficient = user.credits >= args.requiredCredits;
+    return {
+      sufficient,
+      currentCredits: user.credits,
+      requiredCredits: args.requiredCredits,
+      message: sufficient 
+        ? "Sufficient credits available" 
+        : `Insufficient credits. Required: ${args.requiredCredits}, Available: ${user.credits}`,
+    };
+  },
+});
+
+// Get credit balance and status for notifications
+export const getCreditStatus = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      return null;
+    }
+
+    return {
+      credits: user.credits,
+      plan: user.plan,
+      isLowBalance: user.credits <= 5,
+      isZeroBalance: user.credits === 0,
+      needsUpgrade: user.plan === "trial" && user.credits <= 2,
+    };
   },
 });

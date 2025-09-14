@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
+import { Image, MLSExport } from '@/types/convex';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -50,9 +51,9 @@ export function ExportManager({
   // Actions
   const createExport = useAction(api.mlsCompliance.createMLSExport);
 
-  const selectedImageData = projectImages?.filter(img => selectedImages.includes(img._id)) || [];
-  const stagedImages = selectedImageData.filter(img => img.stagedUrl);
-  const approvedImages = selectedImageData.filter(img => img.status === 'approved');
+  const selectedImageData = projectImages?.filter((img: Image) => selectedImages.includes(img._id)) || [];
+  const stagedImages = selectedImageData.filter((img: Image) => img.stagedUrl);
+  const approvedImages = selectedImageData.filter((img: Image) => img.status === 'approved');
 
   const handleQuickExport = async (exportType: 'mls-standard' | 'high-res' | 'all-formats') => {
     if (selectedImages.length === 0) {
@@ -313,7 +314,7 @@ export function ExportManager({
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {recentExports.slice(0, 5).map((exportRecord) => (
+              {recentExports.slice(0, 5).map((exportRecord: MLSExport) => (
                 <div key={exportRecord._id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-3">
                     {getExportStatusIcon(exportRecord.status)}

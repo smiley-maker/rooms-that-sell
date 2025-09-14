@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ProjectImageManager, MLSComplianceDashboard } from "@/components";
+import { Image } from "@/types/convex";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -101,8 +102,8 @@ export default function ProjectDetailPage() {
     );
   }
 
-  const stagedImages = images.filter(img => img.status === "staged" || img.status === "approved");
-  const uploadedImages = images.filter(img => img.status === "uploaded");
+  const stagedImages = images?.filter((img: Image) => img.status === "staged" || img.status === "approved") || [];
+  const uploadedImages = images?.filter((img: Image) => img.status === "uploaded") || [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">

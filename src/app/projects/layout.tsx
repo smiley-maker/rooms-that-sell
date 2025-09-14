@@ -1,4 +1,4 @@
-import { AuthenticatedNavbar } from "@/components/AuthenticatedNavbar";
+import { AuthenticatedNavbar, AuthGuard } from "@/components";
 
 export default function ProjectsLayout({
   children,
@@ -6,9 +6,11 @@ export default function ProjectsLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AuthenticatedNavbar />
-      <main>{children}</main>
-    </div>
+    <AuthGuard>
+      <div className="min-h-screen bg-gray-50">
+        <AuthenticatedNavbar />
+        <main>{children}</main>
+      </div>
+    </AuthGuard>
   );
 }

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
+import { Image, ExportResolution } from '@/types/convex';
 import {
   Dialog,
   DialogContent,
@@ -70,9 +71,9 @@ export function MLSExportDialog({
   // Actions
   const createExport = useAction(api.mlsCompliance.createMLSExport);
 
-  const selectedImageData = projectImages?.filter(img => selectedImages.includes(img._id)) || [];
-  const stagedImages = selectedImageData.filter(img => img.stagedUrl);
-  const nonCompliantImages = selectedImageData.filter(img => 
+  const selectedImageData = projectImages?.filter((img: Image) => selectedImages.includes(img._id)) || [];
+  const stagedImages = selectedImageData.filter((img: Image) => img.stagedUrl);
+  const nonCompliantImages = selectedImageData.filter((img: Image) => 
     img.mlsCompliance && !img.mlsCompliance.isCompliant
   );
 
@@ -200,7 +201,7 @@ export function MLSExportDialog({
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-3">
-                {exportResolutions?.map((resolution) => (
+                {exportResolutions?.map((resolution: ExportResolution) => (
                   <div key={resolution.name} className="flex items-center space-x-2">
                     <Checkbox
                       id={`resolution-${resolution.name}`}

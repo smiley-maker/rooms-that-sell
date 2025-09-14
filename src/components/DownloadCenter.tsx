@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
+import { MLSExport } from '@/types/convex';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -221,7 +222,7 @@ export function DownloadCenter({ projectId }: DownloadCenterProps) {
             </TabsList>
             
             <TabsContent value="recent" className="space-y-4">
-              {exports.slice(0, 3).map((exportRecord) => (
+              {exports.slice(0, 3).map((exportRecord: MLSExport) => (
                 <Card key={exportRecord._id} className="border-l-4 border-l-blue-500">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
@@ -336,7 +337,7 @@ export function DownloadCenter({ projectId }: DownloadCenterProps) {
             
             <TabsContent value="history" className="space-y-4">
               <div className="space-y-3">
-                {exports.map((exportRecord) => (
+                {exports.map((exportRecord: MLSExport) => (
                   <div
                     key={exportRecord._id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"

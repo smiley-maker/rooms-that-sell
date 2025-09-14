@@ -62,7 +62,7 @@
   - Build download center with export history tracking
   - _Requirements: 6.3, 6.4, 6.5_
 
-- [ ] 10. Implement credit system and Stripe integration
+- [x] 10. Implement credit system and Stripe integration
   - Create credit tracking and deduction logic
   - Integrate Stripe for subscription management
   - Build billing dashboard and plan upgrade flows

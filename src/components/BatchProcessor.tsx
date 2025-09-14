@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
+import { Image, StagingJob } from "@/types/convex";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -45,7 +46,7 @@ export function BatchProcessor({ projectId, className }: BatchProcessorProps) {
   const migrateAllQueuedJobs = useAction(api.stagingJobsSimple.migrateAllQueuedJobs);
 
   // Filter images that can be staged
-  const stageableImages = images?.filter(img => img.status === "uploaded") || [];
+  const stageableImages = images?.filter((img: Image) => img.status === "uploaded") || [];
 
   const handleStartBatchProcessing = async () => {
     if (selectedImageIds.length === 0) {
@@ -169,7 +170,7 @@ export function BatchProcessor({ projectId, className }: BatchProcessorProps) {
               </Button>
             </div>
           </div>
-          {activeStagingJobs.map((job) => (
+          {activeStagingJobs.map((job: StagingJob) => (
             <StagingProgress
               key={job._id}
               job={job}
@@ -334,9 +335,9 @@ export function BatchProcessor({ projectId, className }: BatchProcessorProps) {
               <div className="text-sm text-gray-400 mt-4">
                 <p>Current image statuses:</p>
                 <div className="flex flex-wrap gap-2 justify-center mt-2">
-                  {[...new Set(images.map(img => img.status))].map(status => (
+                  {[...new Set(images?.map((img: Image) => img.status) || [])].map((status: string) => (
                     <Badge key={status} variant="outline">
-                      {status}: {images.filter(img => img.status === status).length}
+                      {status}: {images?.filter((img: Image) => img.status === status).length || 0}
                     </Badge>
                   ))}
                 </div>

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
+import { Image } from "@/types/convex";
 import { ImageUploader } from "./ImageUploader";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -169,11 +170,11 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
                 size="sm"
                 onClick={() => {
                   // Select all staged images for export
-                  const stagedImages = images.filter(img => img.stagedUrl).map(img => img._id);
+                  const stagedImages = images.filter((img: Image) => img.stagedUrl).map((img: Image) => img._id);
                   setSelectedImagesForExport(stagedImages);
                   setShowMLSExportDialog(true);
                 }}
-                disabled={!images.some(img => img.stagedUrl)}
+                disabled={!images.some((img: Image) => img.stagedUrl)}
               >
                 <Shield className="w-4 h-4 mr-1" />
                 MLS Export
@@ -252,7 +253,7 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
                 <Card>
                   <CardContent className="p-4">
                     <div className="text-2xl font-bold">
-                      {images.filter(img => img.status === "uploaded").length}
+                      {images.filter((img: Image) => img.status === "uploaded").length}
                     </div>
                     <div className="text-sm text-gray-500">Ready to Stage</div>
                   </CardContent>
@@ -260,7 +261,7 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
                 <Card>
                   <CardContent className="p-4">
                     <div className="text-2xl font-bold">
-                      {images.filter(img => img.status === "staged").length}
+                      {images.filter((img: Image) => img.status === "staged").length}
                     </div>
                     <div className="text-sm text-gray-500">Staged</div>
                   </CardContent>
@@ -268,7 +269,7 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
                 <Card>
                   <CardContent className="p-4">
                     <div className="text-2xl font-bold">
-                      {images.filter(img => img.status === "approved").length}
+                      {images.filter((img: Image) => img.status === "approved").length}
                     </div>
                     <div className="text-sm text-gray-500">Approved</div>
                   </CardContent>
@@ -278,7 +279,7 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
               {/* Image Gallery */}
               {viewMode === "grid" ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {images.map((image) => (
+                  {images.map((image: Image) => (
                     <Card key={image._id} className="overflow-hidden">
                       <div className="aspect-square bg-gray-100 relative">
                         <ImageDisplay
@@ -363,7 +364,7 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
                 <Card>
                   <CardContent className="p-0">
                     <div className="divide-y">
-                      {images.map((image) => (
+                      {images.map((image: Image) => (
                         <div key={image._id} className="p-4 flex items-center gap-4">
                           <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
                             <ImageDisplay
@@ -461,7 +462,7 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
           <DialogHeader className="p-6 pb-0">
             <div className="flex items-center justify-between">
               <DialogTitle>
-                {viewImageId && images?.find(img => img._id === viewImageId)?.filename}
+                {viewImageId && images?.find((img: Image) => img._id === viewImageId)?.filename}
               </DialogTitle>
               <Button
                 variant="ghost"
@@ -478,24 +479,24 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
                 <div className="w-full max-w-3xl">
                   <ImageDisplay
                     imageId={viewImageId}
-                    isStaged={images?.find(img => img._id === viewImageId)?.status === "staged" || 
-                             images?.find(img => img._id === viewImageId)?.status === "approved"}
+                    isStaged={images?.find((img: Image) => img._id === viewImageId)?.status === "staged" ||
+                             images?.find((img: Image) => img._id === viewImageId)?.status === "approved"}
                     className="w-full h-auto max-h-[60vh] object-contain rounded-lg"
-                    alt={images?.find(img => img._id === viewImageId)?.filename || "Image"}
+                    alt={images?.find((img: Image) => img._id === viewImageId)?.filename || "Image"}
                   />
                 </div>
-                {viewImageId && images?.find(img => img._id === viewImageId) && (
+                {viewImageId && images?.find((img: Image) => img._id === viewImageId) && (
                   <div className="mt-4 text-center space-y-2">
                     <div className="flex gap-4 text-sm text-gray-600">
                       <span>
-                        {(images.find(img => img._id === viewImageId)!.fileSize / 1024 / 1024).toFixed(2)} MB
+                        {(images.find((img: Image) => img._id === viewImageId)!.fileSize / 1024 / 1024).toFixed(2)} MB
                       </span>
                       <span>
-                        {images.find(img => img._id === viewImageId)!.dimensions.width}×
-                        {images.find(img => img._id === viewImageId)!.dimensions.height}
+                        {images.find((img: Image) => img._id === viewImageId)!.dimensions.width}×
+                        {images.find((img: Image) => img._id === viewImageId)!.dimensions.height}
                       </span>
                       <span className="capitalize">
-                        {images.find(img => img._id === viewImageId)!.roomType.replace('_', ' ')}
+                        {images.find((img: Image) => img._id === viewImageId)!.roomType.replace('_', ' ')}
                       </span>
                     </div>
                     
@@ -503,7 +504,7 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
                     <div className="mt-4 max-w-md mx-auto">
                       <ComplianceValidator
                         imageId={viewImageId}
-                        image={images.find(img => img._id === viewImageId)!}
+                        image={images.find((img: Image) => img._id === viewImageId)!}
                         onValidationComplete={() => {
                           // Refresh images data after validation
                           window.location.reload();
@@ -513,7 +514,7 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
                     <div className="flex gap-2 justify-center">
                       <Button
                         onClick={() => {
-                          const image = images.find(img => img._id === viewImageId)!;
+                          const image = images.find((img: Image) => img._id === viewImageId)!;
                           handleDownloadImage(
                             viewImageId, 
                             image.filename, 
@@ -550,7 +551,7 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Image</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deleteImageId && images?.find(img => img._id === deleteImageId)?.filename}&quot;? 
+              Are you sure you want to delete &quot;{deleteImageId && images?.find((img: Image) => img._id === deleteImageId)?.filename}&quot;? 
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

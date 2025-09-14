@@ -17,12 +17,17 @@ jobs:
       - run: npm ci
 
       # Wait for Vercel preview deployment created by your GitHub → Vercel integration
-      - name: Wait for Vercel preview
+      # TODO: Replace with working action or implement custom wait logic
+      # - name: Wait for Vercel preview
+      #   id: vercel
+      #   uses: patrickedqvist/wait-for-vercel-preview@v1.3.5
+      #   with:
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     max_timeout: 600
+      
+      - name: Set preview URL (placeholder)
         id: vercel
-        uses: patrickedqvist/wait-for-vercel-preview@v1.3.5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          max_timeout: 600
+        run: echo "url=https://preview-placeholder.vercel.app" >> $GITHUB_OUTPUT
 
       - name: Install Playwright
         run: npx playwright install --with-deps
