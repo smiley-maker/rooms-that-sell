@@ -2,14 +2,21 @@
 
 import React, { useState, useCallback, useRef } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, X, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { Upload, X, AlertCircle, CheckCircle, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Progress } from "./ui/progress";
 import { Alert, AlertDescription } from "./ui/alert";
+import { LoadingOverlay } from "./ui/loading-spinner";
+import { UploadProgress } from "./ui/progress-indicator";
 import { useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
+import { useUploadOperation } from "@/hooks/useAsyncOperation";
+import { useUploadProgress } from "@/hooks/useLoadingState";
+import { useNotifications } from "@/lib/notifications";
+import { AppErrorHandler, ErrorCode } from "@/lib/errors";
+import { withUploadRetry } from "@/lib/retry";
 
 interface UploadFile {
   id: string;
@@ -104,37 +111,43 @@ export function ImageUploader({
     return "unknown";
   };
 
-  // Upload single file
+  // Upload single file with enhanced error handling
   const uploadFile = async (uploadFile: UploadFile): Promise<void> => {
+    const notifications = useNotifications();
+    
     try {
       // Update status to uploading
       setUploadFiles(prev =>
         prev.map(f => f.id === uploadFile.id ? { ...f, status: "uploading", progress: 0 } : f)
       );
 
-      // Get upload URL from Convex
-      const { uploadUrl, imageKey } = await generateUploadUrl({
-        projectId,
-        filename: uploadFile.file.name,
-        contentType: uploadFile.file.type,
-        fileSize: uploadFile.file.size,
-      });
+      // Validate file size and format
+      const validation = validateFile(uploadFile.file);
+      if (!validation.valid) {
+        throw AppErrorHandler.createError(
+          validation.error?.includes("size") ? ErrorCode.IMAGE_TOO_LARGE : ErrorCode.IMAGE_INVALID_FORMAT,
+          new Error(validation.error),
+          { filename: uploadFile.file.name }
+        );
+      }
 
-      console.log("Upload URL generated:", {
-        url: uploadUrl.substring(0, 100) + "...", // Don't log full URL for security
-        imageKey,
-        contentType: uploadFile.file.type,
-        fileSize: uploadFile.file.size
-      });
+      // Use retry mechanism for upload operations
+      await withUploadRetry(async () => {
+        // Get upload URL from Convex
+        const { uploadUrl, imageKey } = await generateUploadUrl({
+          projectId,
+          filename: uploadFile.file.name,
+          contentType: uploadFile.file.type,
+          fileSize: uploadFile.file.size,
+        });
 
-      // Upload to R2 using fetch API
-      try {
-        // Simulate progress during upload
+        // Update progress
         setUploadFiles(prev =>
           prev.map(f => f.id === uploadFile.id ? { ...f, progress: 20 } : f)
         );
 
-        const response = await fetch(uploadUrl, {
+        // Upload to R2 with timeout
+        const uploadPromise = fetch(uploadUrl, {
           method: 'PUT',
           body: uploadFile.file,
           headers: {
@@ -142,19 +155,24 @@ export function ImageUploader({
           },
         });
 
+        // Add timeout to upload
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Upload timeout")), 60000); // 60 second timeout
+        });
+
+        const response = await Promise.race([uploadPromise, timeoutPromise]) as Response;
+
         // Update progress after upload completes
         setUploadFiles(prev =>
           prev.map(f => f.id === uploadFile.id ? { ...f, progress: 70 } : f)
         );
 
-        console.log("Upload response:", {
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok
-        });
-
         if (!response.ok) {
-          throw new Error(`Upload failed with status ${response.status}: ${response.statusText}`);
+          throw AppErrorHandler.createError(
+            ErrorCode.STORAGE_UPLOAD_FAILED,
+            new Error(`Upload failed with status ${response.status}: ${response.statusText}`),
+            { filename: uploadFile.file.name, status: response.status }
+          );
         }
 
         // Update to processing status
@@ -162,8 +180,17 @@ export function ImageUploader({
           prev.map(f => f.id === uploadFile.id ? { ...f, status: "processing", progress: 90 } : f)
         );
 
-        // Get image dimensions
-        const dimensions = await getImageDimensions(uploadFile.file);
+        // Get image dimensions with error handling
+        let dimensions;
+        try {
+          dimensions = await getImageDimensions(uploadFile.file);
+        } catch (error) {
+          throw AppErrorHandler.createError(
+            ErrorCode.IMAGE_PROCESSING_FAILED,
+            error,
+            { filename: uploadFile.file.name, step: "dimension_detection" }
+          );
+        }
         
         // Detect room type
         const roomType = detectRoomType(uploadFile.file.name);
@@ -189,39 +216,81 @@ export function ImageUploader({
           } : f)
         );
 
-      } catch (error) {
-        console.error("Upload error:", error);
-        const errorMessage = error instanceof Error ? error.message : "Upload failed";
-        setUploadFiles(prev =>
-          prev.map(f => f.id === uploadFile.id ? { ...f, status: "error", error: errorMessage } : f)
-        );
-        throw error;
-      }
+        return imageId;
+      }, {
+        maxAttempts: 3,
+        baseDelay: 2000,
+        onRetry: (attempt, error) => {
+          notifications.info(`Retrying upload for ${uploadFile.file.name}`, {
+            description: `Attempt ${attempt} of 3`,
+          });
+        },
+      });
+
     } catch (error) {
-      console.error("Upload error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Upload failed";
+      let appError;
+      if (error && typeof error === "object" && "code" in error) {
+        appError = error;
+      } else {
+        appError = AppErrorHandler.createError(
+          ErrorCode.IMAGE_UPLOAD_FAILED,
+          error,
+          { filename: uploadFile.file.name }
+        );
+      }
+
+      const errorMessage = appError.userMessage;
       setUploadFiles(prev =>
         prev.map(f => f.id === uploadFile.id ? { ...f, status: "error", error: errorMessage } : f)
       );
-      throw error;
+
+      // Don't show notification here as it will be handled by the batch operation
+      throw appError;
     }
   };
 
-  // Upload all files
+  // Upload all files with enhanced error handling
   const uploadAllFiles = async () => {
     if (uploadFiles.length === 0) return;
 
+    const notifications = useNotifications();
     setIsUploading(true);
     abortControllerRef.current = new AbortController();
 
+    const pendingFiles = uploadFiles.filter(f => f.status === "pending");
+    let completed = 0;
+    let failed = 0;
+
     try {
-      const pendingFiles = uploadFiles.filter(f => f.status === "pending");
-      
+      // Show initial progress notification
+      const progressToastId = notifications.loading("Starting upload...", {
+        description: `Uploading ${pendingFiles.length} files`,
+      });
+
       // Upload files sequentially to avoid overwhelming the server
       for (const file of pendingFiles) {
         if (abortControllerRef.current.signal.aborted) break;
-        await uploadFile(file);
+        
+        try {
+          await uploadFile(file);
+          completed++;
+          
+          // Update progress notification
+          notifications.dismiss(progressToastId);
+          notifications.loading(`Uploading files...`, {
+            description: `${completed + failed} of ${pendingFiles.length} processed`,
+          });
+        } catch (error) {
+          failed++;
+          console.error(`Upload failed for ${file.file.name}:`, error);
+        }
       }
+
+      // Dismiss progress notification
+      notifications.dismiss(progressToastId);
+
+      // Show final result notification
+      notifications.batchOperation("Upload", pendingFiles.length, completed, failed);
 
       // Get completed image IDs
       const completedImages = uploadFiles
@@ -232,7 +301,8 @@ export function ImageUploader({
         onUploadComplete(completedImages);
       }
     } catch (error) {
-      console.error("Batch upload error:", error);
+      const appError = AppErrorHandler.fromConvexError(error);
+      notifications.handleError(appError, () => uploadAllFiles());
     } finally {
       setIsUploading(false);
       abortControllerRef.current = null;
@@ -260,6 +330,24 @@ export function ImageUploader({
   // Remove file from upload list
   const removeFile = (fileId: string) => {
     setUploadFiles(prev => prev.filter(f => f.id !== fileId));
+  };
+
+  // Retry failed upload
+  const retryFile = async (fileId: string) => {
+    const file = uploadFiles.find(f => f.id === fileId);
+    if (!file || file.status !== "error") return;
+
+    // Reset file status to pending
+    setUploadFiles(prev =>
+      prev.map(f => f.id === fileId ? { ...f, status: "pending", error: undefined, progress: 0 } : f)
+    );
+
+    // Upload the file
+    try {
+      await uploadFile(file);
+    } catch (error) {
+      // Error is already handled in uploadFile
+    }
   };
 
   // Cancel all uploads
@@ -394,21 +482,42 @@ export function ImageUploader({
                       <CheckCircle className="w-5 h-5 text-green-600" />
                     )}
                     {uploadFile.status === "error" && (
-                      <AlertCircle className="w-5 h-5 text-red-600" />
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5 text-red-600" />
+                        {uploadFile.error && (
+                          <span className="text-xs text-red-600 max-w-32 truncate" title={uploadFile.error}>
+                            {uploadFile.error}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
 
-                  {/* Remove Button */}
-                  {!isUploading && (
-                    <Button
-                      onClick={() => removeFile(uploadFile.id)}
-                      variant="ghost"
-                      size="sm"
-                      className="p-1 h-auto"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  )}
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-1">
+                    {uploadFile.status === "error" && !isUploading && (
+                      <Button
+                        onClick={() => retryFile(uploadFile.id)}
+                        variant="ghost"
+                        size="sm"
+                        className="p-1 h-auto"
+                        title="Retry upload"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </Button>
+                    )}
+                    {!isUploading && (
+                      <Button
+                        onClick={() => removeFile(uploadFile.id)}
+                        variant="ghost"
+                        size="sm"
+                        className="p-1 h-auto"
+                        title="Remove file"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
