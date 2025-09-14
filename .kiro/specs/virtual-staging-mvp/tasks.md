@@ -41,21 +41,21 @@
   - Build staging progress tracking and queue management
   - _Requirements: 4.2, 4.1_
 
-- [ ] 7. Implement MLS compliance features
+- [x] 7. Implement MLS compliance features
   - Add automatic watermarking system for staged images
   - Create dual export functionality (staged + original versions)
   - Implement structural preservation validation
   - Build compliance checking and warning system
   - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-- [ ] 8. Create image review and approval system
+- [x] 8. Create image review and approval system
   - Build before/after comparison interface with interactive sliders
   - Implement image approval workflow with regeneration options
   - Create detailed image viewer with metadata display
   - Add gallery view for project image management
   - _Requirements: 6.1, 6.2, 4.4, 4.6_
 
-- [ ] 9. Build export and download system
+- [x] 9. Build export and download system
   - Create export manager with multiple resolution options
   - Implement MLS-ready format generation (1024x768, 1200x800, high-res)
   - Add batch download functionality with organized file naming

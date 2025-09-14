@@ -668,6 +668,220 @@ export const updateImageMetadata = mutation({
 });
 
 /**
+ * Approve image for export
+ */
+export const approveImage = mutation({
+  args: {
+    imageId: v.id("images"),
+  },
+  handler: async (ctx, args) => {
+    // Get current user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get image and verify ownership
+    const image = await ctx.db.get(args.imageId);
+    if (!image || image.userId !== user._id) {
+      throw new Error("Image not found or access denied");
+    }
+
+    // Update status to approved
+    await ctx.db.patch(args.imageId, {
+      status: "approved",
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Reject image (reset to staged for re-review)
+ */
+export const rejectImage = mutation({
+  args: {
+    imageId: v.id("images"),
+  },
+  handler: async (ctx, args) => {
+    // Get current user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get image and verify ownership
+    const image = await ctx.db.get(args.imageId);
+    if (!image || image.userId !== user._id) {
+      throw new Error("Image not found or access denied");
+    }
+
+    // Reset status to staged for re-review
+    await ctx.db.patch(args.imageId, {
+      status: "staged",
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Queue image for regeneration
+ */
+export const queueImageRegeneration = mutation({
+  args: {
+    imageId: v.id("images"),
+  },
+  handler: async (ctx, args) => {
+    // Get current user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get image and verify ownership
+    const image = await ctx.db.get(args.imageId);
+    if (!image || image.userId !== user._id) {
+      throw new Error("Image not found or access denied");
+    }
+
+    // Reset to uploaded status to trigger re-staging
+    await ctx.db.patch(args.imageId, {
+      status: "uploaded",
+      stagedUrl: undefined,
+      stagedKey: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Get images by status for a project
+ */
+export const getProjectImagesByStatus = query({
+  args: {
+    projectId: v.id("projects"),
+    status: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Get current user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Verify project ownership
+    const project = await ctx.db.get(args.projectId);
+    if (!project || project.userId !== user._id) {
+      throw new Error("Project not found or access denied");
+    }
+
+    // Get images for the project
+    let query = ctx.db
+      .query("images")
+      .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId));
+
+    const images = await query.collect();
+
+    // Filter by status if provided
+    if (args.status) {
+      return images.filter(img => img.status === args.status);
+    }
+
+    return images;
+  },
+});
+
+/**
+ * Get review statistics for a project
+ */
+export const getProjectReviewStats = query({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    // Get current user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Verify project ownership
+    const project = await ctx.db.get(args.projectId);
+    if (!project || project.userId !== user._id) {
+      throw new Error("Project not found or access denied");
+    }
+
+    // Get all images for the project
+    const images = await ctx.db
+      .query("images")
+      .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    // Calculate statistics
+    const stats = {
+      total: images.length,
+      uploaded: images.filter(img => img.status === "uploaded").length,
+      processing: images.filter(img => img.status === "processing").length,
+      staged: images.filter(img => img.status === "staged").length,
+      approved: images.filter(img => img.status === "approved").length,
+      exported: images.filter(img => img.status === "exported").length,
+    };
+
+    return stats;
+  },
+});
+
+/**
  * Delete image
  */
 export const deleteImage = mutation({

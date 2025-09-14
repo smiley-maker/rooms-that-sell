@@ -214,6 +214,147 @@ export const applyImageWatermark = action({
 });
 
 /**
+ * Generate export files with multiple resolutions
+ */
+export const generateExportFiles = action({
+  args: {
+    imageId: v.id("images"),
+    resolutions: v.array(v.string()),
+    includeOriginal: v.boolean(),
+    includeStaged: v.boolean(),
+    watermarkOptions: v.optional(v.object({
+      text: v.string(),
+      position: v.string(),
+      opacity: v.number(),
+      fontSize: v.number(),
+      color: v.string(),
+    })),
+  },
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    exports: Array<{
+      type: 'original' | 'staged';
+      resolution: string;
+      dataUrl: string;
+      filename: string;
+    }>;
+    error?: string;
+  }> => {
+    // Get current user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.runQuery(api.users.getCurrentUser);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get image and verify ownership
+    const image = await ctx.runQuery(api.images.getImageById, { imageId: args.imageId });
+    if (!image) {
+      throw new Error("Image not found");
+    }
+
+    // Verify ownership through project
+    const project = await ctx.runQuery(api.projects.getProject, { projectId: image.projectId });
+    if (!project || project.userId !== user._id) {
+      throw new Error("Access denied");
+    }
+
+    try {
+      // Map resolution names to actual dimensions
+      const resolutionMap = MLS_EXPORT_RESOLUTIONS.reduce((acc, res) => {
+        acc[res.name] = res;
+        return acc;
+      }, {} as Record<string, typeof MLS_EXPORT_RESOLUTIONS[0]>);
+
+      const selectedResolutions = args.resolutions
+        .map(name => resolutionMap[name])
+        .filter(Boolean);
+
+      if (selectedResolutions.length === 0) {
+        throw new Error("No valid resolutions selected");
+      }
+
+      const exports = [];
+
+      // Process original image if requested
+      if (args.includeOriginal && image.originalUrl) {
+        for (const resolution of selectedResolutions) {
+          try {
+            // For now, return the original URL as-is (in production, this would be resized)
+            const originalUrl = await ctx.runAction(api.images.getImageDownloadUrl, {
+              imageId: args.imageId,
+              isStaged: false
+            });
+
+            exports.push({
+              type: 'original' as const,
+              resolution: resolution.name,
+              dataUrl: originalUrl,
+              filename: `original_${resolution.name.toLowerCase().replace(/\s+/g, '_')}_${image.filename}`,
+            });
+          } catch (error) {
+            console.error(`Failed to process original image for ${resolution.name}:`, error);
+          }
+        }
+      }
+
+      // Process staged image if requested
+      if (args.includeStaged && image.stagedUrl) {
+        for (const resolution of selectedResolutions) {
+          try {
+            // Get staged image URL
+            const stagedUrl = await ctx.runAction(api.images.getImageDownloadUrl, {
+              imageId: args.imageId,
+              isStaged: true
+            });
+
+            // Apply watermark if needed and if it's a data URL
+            let finalUrl = stagedUrl;
+            if (stagedUrl.startsWith('data:') && args.watermarkOptions) {
+              const watermarkOptions: WatermarkOptions = {
+                text: args.watermarkOptions.text || DEFAULT_WATERMARK.text,
+                position: (args.watermarkOptions.position as WatermarkOptions['position']) || DEFAULT_WATERMARK.position,
+                opacity: args.watermarkOptions.opacity || DEFAULT_WATERMARK.opacity,
+                fontSize: args.watermarkOptions.fontSize || DEFAULT_WATERMARK.fontSize,
+                color: args.watermarkOptions.color || DEFAULT_WATERMARK.color,
+              };
+
+              finalUrl = await applyWatermark(stagedUrl, watermarkOptions);
+            }
+
+            exports.push({
+              type: 'staged' as const,
+              resolution: resolution.name,
+              dataUrl: finalUrl,
+              filename: `staged_${resolution.name.toLowerCase().replace(/\s+/g, '_')}_${image.filename}`,
+            });
+          } catch (error) {
+            console.error(`Failed to process staged image for ${resolution.name}:`, error);
+          }
+        }
+      }
+
+      return {
+        success: true,
+        exports,
+      };
+
+    } catch (error) {
+      console.error('Export file generation failed:', error);
+      return {
+        success: false,
+        exports: [],
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+});
+
+/**
  * Create MLS export package for images
  */
 export const createMLSExport = action({

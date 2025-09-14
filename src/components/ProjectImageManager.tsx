@@ -34,11 +34,16 @@ import {
   Download,
   Trash2,
   X,
-  Wand2
+  Wand2,
+  Shield
 } from "lucide-react";
 import { ImageDisplay } from "./ImageDisplay";
 import { RoomTypeSelector } from "./RoomTypeSelector";
 import { BatchProcessor } from "./BatchProcessor";
+import { MLSComplianceDashboard } from "./MLSComplianceDashboard";
+import { ComplianceValidator } from "./ComplianceValidator";
+import { MLSExportDialog } from "./MLSExportDialog";
+import { ImageReviewSystem } from "./ImageReviewSystem";
 import { toast } from "sonner";
 
 interface ProjectImageManagerProps {
@@ -50,6 +55,8 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [viewImageId, setViewImageId] = useState<Id<"images"> | null>(null);
   const [deleteImageId, setDeleteImageId] = useState<Id<"images"> | null>(null);
+  const [showMLSExportDialog, setShowMLSExportDialog] = useState(false);
+  const [selectedImagesForExport, setSelectedImagesForExport] = useState<Id<"images">[]>([]);
 
   // Fetch project images
   const images = useQuery(api.images.getProjectImages, { projectId });
@@ -157,6 +164,20 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
               >
                 <List className="w-4 h-4" />
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Select all staged images for export
+                  const stagedImages = images.filter(img => img.stagedUrl).map(img => img._id);
+                  setSelectedImagesForExport(stagedImages);
+                  setShowMLSExportDialog(true);
+                }}
+                disabled={!images.some(img => img.stagedUrl)}
+              >
+                <Shield className="w-4 h-4 mr-1" />
+                MLS Export
+              </Button>
             </div>
           )}
         </div>
@@ -175,6 +196,14 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
           <TabsTrigger value="batch" className="flex items-center gap-2">
             <Wand2 className="w-4 h-4" />
             Batch Staging
+          </TabsTrigger>
+          <TabsTrigger value="review" className="flex items-center gap-2">
+            <Eye className="w-4 h-4" />
+            Review & Approval
+          </TabsTrigger>
+          <TabsTrigger value="compliance" className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            MLS Compliance
           </TabsTrigger>
         </TabsList>
 
@@ -416,6 +445,14 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
         <TabsContent value="batch" className="space-y-4">
           <BatchProcessor projectId={projectId} />
         </TabsContent>
+
+        <TabsContent value="review" className="space-y-4">
+          <ImageReviewSystem projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="compliance" className="space-y-4">
+          <MLSComplianceDashboard projectId={projectId} />
+        </TabsContent>
       </Tabs>
 
       {/* Image View Modal */}
@@ -460,6 +497,18 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
                       <span className="capitalize">
                         {images.find(img => img._id === viewImageId)!.roomType.replace('_', ' ')}
                       </span>
+                    </div>
+                    
+                    {/* MLS Compliance Validation */}
+                    <div className="mt-4 max-w-md mx-auto">
+                      <ComplianceValidator
+                        imageId={viewImageId}
+                        image={images.find(img => img._id === viewImageId)!}
+                        onValidationComplete={() => {
+                          // Refresh images data after validation
+                          window.location.reload();
+                        }}
+                      />
                     </div>
                     <div className="flex gap-2 justify-center">
                       <Button
@@ -516,6 +565,17 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* MLS Export Dialog */}
+      <MLSExportDialog
+        isOpen={showMLSExportDialog}
+        onClose={() => {
+          setShowMLSExportDialog(false);
+          setSelectedImagesForExport([]);
+        }}
+        projectId={projectId}
+        selectedImages={selectedImagesForExport}
+      />
     </div>
   );
 }

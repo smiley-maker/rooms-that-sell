@@ -26,3 +26,9 @@ export { StagingProgress } from './StagingProgress';
 export { MLSComplianceDashboard } from './MLSComplianceDashboard';
 export { MLSExportDialog } from './MLSExportDialog';
 export { ComplianceValidator } from './ComplianceValidator';
+
+// Image Review & Approval Components
+export { ImageReviewSystem } from './ImageReviewSystem';
+export { ImageComparisonSlider } from './ImageComparisonSlider';
+export { ImageApprovalWorkflow } from './ImageApprovalWorkflow';
+export { ImageDetailViewer } from './ImageDetailViewer';
