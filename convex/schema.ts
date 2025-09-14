@@ -55,13 +55,29 @@ export default defineSchema({
       detectedFeatures: v.optional(v.array(v.string())),
       confidence: v.optional(v.number()),
       processingTime: v.optional(v.number()),
+      stylePreset: v.optional(v.string()),
+      aiModel: v.optional(v.string()),
     }),
+    mlsCompliance: v.optional(v.object({
+      isCompliant: v.boolean(),
+      score: v.number(),
+      violations: v.array(v.string()),
+      warnings: v.array(v.string()),
+      lastChecked: v.number(),
+      structuralPreservation: v.object({
+        validated: v.boolean(),
+        confidence: v.number(),
+        issues: v.array(v.string()),
+      }),
+      watermarkApplied: v.boolean(),
+    })),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_projectId", ["projectId"])
     .index("by_userId", ["userId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_compliance", ["mlsCompliance.isCompliant"]),
 
   stagingJobs: defineTable({
     userId: v.id("users"),
@@ -106,6 +122,34 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_type", ["type"]),
+
+  mlsExports: defineTable({
+    userId: v.id("users"),
+    projectId: v.id("projects"),
+    imageIds: v.array(v.id("images")),
+    exportType: v.string(), // "original", "staged", "both"
+    resolutions: v.array(v.string()),
+    watermarkSettings: v.object({
+      text: v.string(),
+      position: v.string(),
+      opacity: v.number(),
+      fontSize: v.number(),
+      color: v.string(),
+    }),
+    complianceValidated: v.boolean(),
+    exportUrls: v.array(v.object({
+      type: v.string(), // "original" | "staged"
+      resolution: v.string(),
+      url: v.string(),
+      filename: v.string(),
+    })),
+    status: v.string(), // "processing", "completed", "failed"
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_projectId", ["projectId"])
+    .index("by_status", ["status"]),
 });
 
 

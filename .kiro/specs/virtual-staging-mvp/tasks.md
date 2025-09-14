@@ -20,42 +20,42 @@
   - Implement upload progress tracking and error handling
   - _Requirements: 3.1, 3.2, 3.3, 3.7_
 
-- [ ] 4. Implement intelligent room type detection
+- [x] 4. Implement intelligent room type detection
   - Create filename parsing logic for room type hints
   - Build AI heuristics for structural feature detection
   - Implement fallback suggestion system with user override
   - Add room type tagging interface to uploaded images
   - _Requirements: 3.4, 3.5, 3.6_
 
-- [ ] 5. Integrate Gemini 2.5 Flash Image API for AI staging
+- [x] 5. Integrate Gemini 2.5 Flash Image API for AI staging
   - Set up Gemini API client and authentication
   - Create staging job queue system in Convex
   - Implement AI staging functions with style preset support
   - Add error handling and retry logic for AI processing
   - _Requirements: 4.1, 4.3, 4.7_
 
-- [ ] 6. Build batch processing and style consistency system
+- [x] 6. Build batch processing and style consistency system
   - Create batch selection interface for multiple images
   - Implement style palette options (Minimal, Scandinavian, Bohemian, Modern, Traditional)
   - Add consistent styling across selected images in a batch
   - Build staging progress tracking and queue management
   - _Requirements: 4.2, 4.1_
 
-- [ ] 7. Implement MLS compliance features
+- [x] 7. Implement MLS compliance features
   - Add automatic watermarking system for staged images
   - Create dual export functionality (staged + original versions)
   - Implement structural preservation validation
   - Build compliance checking and warning system
   - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-- [ ] 8. Create image review and approval system
+- [x] 8. Create image review and approval system
   - Build before/after comparison interface with interactive sliders
   - Implement image approval workflow with regeneration options
   - Create detailed image viewer with metadata display
   - Add gallery view for project image management
   - _Requirements: 6.1, 6.2, 4.4, 4.6_
 
-- [ ] 9. Build export and download system
+- [x] 9. Build export and download system
   - Create export manager with multiple resolution options
   - Implement MLS-ready format generation (1024x768, 1200x800, high-res)
   - Add batch download functionality with organized file naming

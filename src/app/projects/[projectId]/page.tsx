@@ -4,10 +4,11 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { ProjectImageManager } from "@/components";
+import { ProjectImageManager, MLSComplianceDashboard } from "@/components";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   ArrowLeft, 
   MapPin, 
@@ -16,7 +17,8 @@ import {
   Image as ImageIcon,
   CheckCircle2,
   Clock,
-  Archive
+  Archive,
+  Shield
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -194,8 +196,27 @@ export default function ProjectDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Image Management */}
-      <ProjectImageManager projectId={projectId} />
+      {/* Main Content Tabs */}
+      <Tabs defaultValue="images" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="images" className="flex items-center gap-2">
+            <ImageIcon className="w-4 h-4" />
+            Images & Staging
+          </TabsTrigger>
+          <TabsTrigger value="compliance" className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            MLS Compliance
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="images" className="mt-6">
+          <ProjectImageManager projectId={projectId} />
+        </TabsContent>
+        
+        <TabsContent value="compliance" className="mt-6">
+          <MLSComplianceDashboard projectId={projectId} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

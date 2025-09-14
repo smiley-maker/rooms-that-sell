@@ -33,9 +33,17 @@ import {
   Eye,
   Download,
   Trash2,
-  X
+  X,
+  Wand2,
+  Shield
 } from "lucide-react";
 import { ImageDisplay } from "./ImageDisplay";
+import { RoomTypeSelector } from "./RoomTypeSelector";
+import { BatchProcessor } from "./BatchProcessor";
+import { MLSComplianceDashboard } from "./MLSComplianceDashboard";
+import { ComplianceValidator } from "./ComplianceValidator";
+import { MLSExportDialog } from "./MLSExportDialog";
+import { ImageReviewSystem } from "./ImageReviewSystem";
 import { toast } from "sonner";
 
 interface ProjectImageManagerProps {
@@ -47,6 +55,8 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [viewImageId, setViewImageId] = useState<Id<"images"> | null>(null);
   const [deleteImageId, setDeleteImageId] = useState<Id<"images"> | null>(null);
+  const [showMLSExportDialog, setShowMLSExportDialog] = useState(false);
+  const [selectedImagesForExport, setSelectedImagesForExport] = useState<Id<"images">[]>([]);
 
   // Fetch project images
   const images = useQuery(api.images.getProjectImages, { projectId });
@@ -54,6 +64,7 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
   // Convex functions
   const deleteImage = useMutation(api.images.deleteImage);
   const getImageDownloadUrl = useAction(api.images.getImageDownloadUrl);
+  const updateImageRoomType = useMutation(api.images.updateImageRoomType);
 
   const handleUploadComplete = (imageIds: Id<"images">[]) => {
     console.log("Upload completed for images:", imageIds);
@@ -96,6 +107,16 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
     } catch (error) {
       console.error("Delete failed:", error);
       toast.error("Failed to delete image");
+    }
+  };
+
+  const handleRoomTypeChange = async (imageId: Id<"images">, roomType: string) => {
+    try {
+      await updateImageRoomType({ imageId, roomType });
+      toast.success("Room type updated successfully");
+    } catch (error) {
+      console.error("Room type update failed:", error);
+      toast.error("Failed to update room type");
     }
   };
 
@@ -143,6 +164,20 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
               >
                 <List className="w-4 h-4" />
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Select all staged images for export
+                  const stagedImages = images.filter(img => img.stagedUrl).map(img => img._id);
+                  setSelectedImagesForExport(stagedImages);
+                  setShowMLSExportDialog(true);
+                }}
+                disabled={!images.some(img => img.stagedUrl)}
+              >
+                <Shield className="w-4 h-4 mr-1" />
+                MLS Export
+              </Button>
             </div>
           )}
         </div>
@@ -157,6 +192,18 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
           <TabsTrigger value="gallery" className="flex items-center gap-2">
             <ImageIcon className="w-4 h-4" />
             Gallery ({images?.length || 0})
+          </TabsTrigger>
+          <TabsTrigger value="batch" className="flex items-center gap-2">
+            <Wand2 className="w-4 h-4" />
+            Batch Staging
+          </TabsTrigger>
+          <TabsTrigger value="review" className="flex items-center gap-2">
+            <Eye className="w-4 h-4" />
+            Review & Approval
+          </TabsTrigger>
+          <TabsTrigger value="compliance" className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            MLS Compliance
           </TabsTrigger>
         </TabsList>
 
@@ -245,21 +292,41 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
                             {image.roomType.replace('_', ' ')}
                           </Badge>
                         </div>
-                        <div className="absolute top-2 right-2">
+                        <div className="absolute top-2 right-2 flex flex-col gap-1">
                           <Badge className={getStatusColor(image.status)}>
                             {image.status}
                           </Badge>
+                          {image.status === "staged" && image.stagedUrl && (
+                            <Badge variant="outline" className="bg-green-100 text-green-800 text-xs">
+                              {image.stagedUrl.startsWith('data:') ? 'AI Generated' : 'Staged'}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                       <CardContent className="p-3">
                         <p className="text-sm font-medium truncate" title={image.filename}>
                           {image.filename}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 mb-2">
                           {(image.fileSize / 1024 / 1024).toFixed(2)} MB •{" "}
                           {image.dimensions.width}×{image.dimensions.height}
                         </p>
-                        <div className="flex gap-1 mt-2">
+                        
+                        {/* Room Type Selector */}
+                        <div className="mb-3">
+                          <RoomTypeSelector
+                            filename={image.filename}
+                            currentRoomType={image.roomType}
+                            onRoomTypeChange={(roomType) => handleRoomTypeChange(image._id, roomType)}
+                            metadata={{
+                              description: `Image from ${image.filename}`,
+                              tags: image.metadata.detectedFeatures || []
+                            }}
+                            className="text-xs"
+                          />
+                        </div>
+                        
+                        <div className="flex gap-1">
                           <Button 
                             size="sm" 
                             variant="outline" 
@@ -308,17 +375,34 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium truncate">{image.filename}</p>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-gray-500 mb-2">
                               {(image.fileSize / 1024 / 1024).toFixed(2)} MB •{" "}
                               {image.dimensions.width}×{image.dimensions.height}
                             </p>
-                            <div className="flex gap-2 mt-1">
-                              <Badge className={getRoomTypeColor(image.roomType)}>
-                                {image.roomType.replace('_', ' ')}
-                              </Badge>
+                            
+                            {/* Room Type Selector for List View */}
+                            <div className="mb-2">
+                              <RoomTypeSelector
+                                filename={image.filename}
+                                currentRoomType={image.roomType}
+                                onRoomTypeChange={(roomType) => handleRoomTypeChange(image._id, roomType)}
+                                metadata={{
+                                  description: `Image from ${image.filename}`,
+                                  tags: image.metadata.detectedFeatures || []
+                                }}
+                                className="text-xs"
+                              />
+                            </div>
+                            
+                            <div className="flex gap-2">
                               <Badge className={getStatusColor(image.status)}>
                                 {image.status}
                               </Badge>
+                              {image.metadata.confidence !== undefined && (
+                                <Badge variant="outline" className="text-xs">
+                                  {Math.round(image.metadata.confidence * 100)}% confidence
+                                </Badge>
+                              )}
                             </div>
                           </div>
                           <div className="flex gap-2">
@@ -356,6 +440,18 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
               )}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="batch" className="space-y-4">
+          <BatchProcessor projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="review" className="space-y-4">
+          <ImageReviewSystem projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="compliance" className="space-y-4">
+          <MLSComplianceDashboard projectId={projectId} />
         </TabsContent>
       </Tabs>
 
@@ -401,6 +497,18 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
                       <span className="capitalize">
                         {images.find(img => img._id === viewImageId)!.roomType.replace('_', ' ')}
                       </span>
+                    </div>
+                    
+                    {/* MLS Compliance Validation */}
+                    <div className="mt-4 max-w-md mx-auto">
+                      <ComplianceValidator
+                        imageId={viewImageId}
+                        image={images.find(img => img._id === viewImageId)!}
+                        onValidationComplete={() => {
+                          // Refresh images data after validation
+                          window.location.reload();
+                        }}
+                      />
                     </div>
                     <div className="flex gap-2 justify-center">
                       <Button
@@ -457,6 +565,17 @@ export function ProjectImageManager({ projectId }: ProjectImageManagerProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* MLS Export Dialog */}
+      <MLSExportDialog
+        isOpen={showMLSExportDialog}
+        onClose={() => {
+          setShowMLSExportDialog(false);
+          setSelectedImagesForExport([]);
+        }}
+        projectId={projectId}
+        selectedImages={selectedImagesForExport}
+      />
     </div>
   );
 }

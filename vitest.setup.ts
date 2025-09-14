@@ -1,4 +1,24 @@
 import "@testing-library/jest-dom/vitest";
+import { vi } from "vitest";
+
+// Mock import.meta.glob for convex-test compatibility
+type GlobalThisWithImport = typeof globalThis & {
+  import?: {
+    meta: {
+      glob: ReturnType<typeof vi.fn>;
+    };
+  };
+};
+
+const globalThisWithImport = globalThis as GlobalThisWithImport;
+
+if (typeof globalThisWithImport.import === 'undefined') {
+  globalThisWithImport.import = {
+    meta: {
+      glob: vi.fn(() => ({}))
+    }
+  };
+}
 
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
