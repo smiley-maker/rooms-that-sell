@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatDistanceToNow } from "date-fns";
 import { DashboardSkeleton } from "@/components/ui/skeleton";
+import { AuthenticatedNavbar } from "@/components";
 
 interface ProjectDashboardProps {
   onCreateProject: () => void;
@@ -82,7 +83,8 @@ export function ProjectDashboard({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-[#F3F2F2] min-h-screen px-16">
+      <AuthenticatedNavbar />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Projects</h1>

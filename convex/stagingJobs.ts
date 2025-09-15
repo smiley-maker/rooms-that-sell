@@ -59,7 +59,8 @@ export const createStagingJob = mutation({
           logger.warn("stagingJobs.create: image verify failed", { imageId: String(imageId), imageFound: !!image });
           throw new Error(`Image ${imageId} not found or access denied`);
         }
-        if (image.status !== "uploaded") {
+        // Allow staging on uploaded, staged, and approved images (for regeneration)
+        if (!["uploaded", "staged", "approved"].includes(image.status)) {
           logger.warn("stagingJobs.create: image status invalid", { imageId: String(imageId), status: image.status });
           throw new Error(`Image ${image.filename} is not ready for staging (status: ${image.status})`);
         }

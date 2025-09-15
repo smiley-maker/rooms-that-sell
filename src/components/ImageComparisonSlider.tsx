@@ -1,10 +1,14 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { Id } from "../../convex/_generated/dataModel";
 import { ImageDisplay } from "./ImageDisplay";
-import { Loader2, Move } from "lucide-react";
+import { useAction } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { cn } from "@/lib/utils";
 
+// ImageComparisonSlider component - based on the landing page BeforeAfterSlider with improvements
 interface ImageComparisonSliderProps {
   imageId: Id<"images">;
   originalUrl?: string;
@@ -15,86 +19,146 @@ interface ImageComparisonSliderProps {
 export function ImageComparisonSlider({ 
   imageId, 
   stagedUrl, 
-  className = "" 
+  className,
 }: ImageComparisonSliderProps) {
-  const [sliderPosition, setSliderPosition] = useState(50);
+  const [position, setPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
-  const [isLoading] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
+  const [lastInteractionTime, setLastInteractionTime] = useState(Date.now());
+  const [isMobileSliderActive, setIsMobileSliderActive] = useState(false);
+  const [beforeImageUrl, setBeforeImageUrl] = useState<string | null>(null);
+  const [afterImageUrl, setAfterImageUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const getImageDownloadUrl = useAction(api.images.getImageDownloadUrl);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    updateSliderPosition(e);
-  };
+  const objectFitClass =
+    className?.match(/object-(contain|cover|fill|none|scale-down)/)?.[0] ||
+    "object-contain";
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging) {
-      updateSliderPosition(e);
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setIsDragging(true);
-    updateSliderPositionTouch(e);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (isDragging) {
-      updateSliderPositionTouch(e);
-    }
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
-
-  const updateSliderPosition = (e: React.MouseEvent) => {
-    if (!containerRef.current) return;
-    
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-    setSliderPosition(percentage);
-  };
-
-  const updateSliderPositionTouch = (e: React.TouchEvent) => {
-    if (!containerRef.current) return;
-    
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = e.touches[0].clientX - rect.left;
-    const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-    setSliderPosition(percentage);
-  };
-
-  // Add global mouse events for dragging
+  // Load both original and staged image URLs
   useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (isDragging && containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-        setSliderPosition(percentage);
+    let mounted = true;
+
+    const loadImages = async () => {
+      // Reset state when imageId changes to prevent flashing
+      setImagesLoaded(false);
+      setIsLoading(true);
+      setBeforeImageUrl(null);
+      setAfterImageUrl(null);
+      
+      try {
+        // Load original image
+        const originalUrl = await getImageDownloadUrl({ 
+          imageId, 
+          isStaged: false 
+        });
+        
+        if (mounted) {
+          setBeforeImageUrl(originalUrl);
+        }
+      } catch (err) {
+        console.error("Failed to load original image:", err);
+      }
+
+      // Load staged image if available
+      if (stagedUrl) {
+        try {
+          const stagedImageUrl = await getImageDownloadUrl({ 
+            imageId, 
+            isStaged: true 
+          });
+          
+          if (mounted) {
+            setAfterImageUrl(stagedImageUrl);
+          }
+        } catch (err) {
+          console.error("Failed to load staged image:", err);
+        }
+      }
+
+      if (mounted) {
+        setIsLoading(false);
+        // Use a small delay to ensure images are ready before showing
+        setTimeout(() => {
+          if (mounted) {
+            setImagesLoaded(true);
+          }
+        }, 100);
       }
     };
 
-    const handleGlobalMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    if (isDragging) {
-      document.addEventListener('mousemove', handleGlobalMouseMove);
-      document.addEventListener('mouseup', handleGlobalMouseUp);
-    }
+    loadImages();
 
     return () => {
-      document.removeEventListener('mousemove', handleGlobalMouseMove);
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
+      mounted = false;
     };
-  }, [isDragging]);
+  }, [imageId, stagedUrl, getImageDownloadUrl]);
+
+  // Smooth easing back to center when not hovering (but not on mobile slider interaction)
+  useEffect(() => {
+    if (isHovering || isDragging || isMobileSliderActive) return;
+
+    const timeSinceLastInteraction = Date.now() - lastInteractionTime;
+    // Only start easing after 1 second of no interaction
+    if (timeSinceLastInteraction < 1000) return;
+
+    const startPosition = position;
+    const targetPosition = 50;
+    const startTime = Date.now();
+    const duration = 800; // 800ms easing animation
+
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = easeOutCubic(progress);
+      
+      const currentPosition = startPosition + (targetPosition - startPosition) * easedProgress;
+      setPosition(currentPosition);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [isHovering, isDragging, isMobileSliderActive, lastInteractionTime, position]);
+
+  const handleMouseDown = () => setIsDragging(true);
+  const handleMouseUp = () => setIsDragging(false);
+
+  // Desktop: Follow mouse on hover (no dragging required)
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    setPosition(percentage);
+    setLastInteractionTime(Date.now());
+  };
+
+  // Mobile: Keep original touch behavior for dragging
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    setPosition(percentage);
+    setLastInteractionTime(Date.now());
+  };
+
+  const handleMouseEnter = () => {
+    setIsHovering(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovering(false);
+    handleMouseUp();
+    setLastInteractionTime(Date.now());
+  };
 
   // If no staged image, show original only
   if (!stagedUrl) {
@@ -117,66 +181,116 @@ export function ImageComparisonSlider({
   }
 
   return (
-    <div 
-      ref={containerRef}
-      className={`relative overflow-hidden select-none ${className}`}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Original Image (Right side) */}
-      <div className="absolute inset-0">
-        <ImageDisplay
-          imageId={imageId}
-          isStaged={false}
-          className="w-full h-full"
-          alt="Original image"
-        />
-        <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-xs">
-          Original
-        </div>
-      </div>
-
-      {/* Staged Image (Left side) */}
-      <div 
-        className="absolute inset-0 overflow-hidden"
-        style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
-      >
-        <ImageDisplay
-          imageId={imageId}
-          isStaged={true}
-          className="w-full h-full"
-          alt="Staged image"
-        />
-        <div className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-xs">
-          Staged
-        </div>
-      </div>
-
-      {/* Slider Line */}
-      <div 
-        className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg cursor-ew-resize z-10"
-        style={{ left: `${sliderPosition}%` }}
-        onMouseDown={handleMouseDown}
-        onTouchStart={handleTouchStart}
-      >
-        {/* Slider Handle */}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center cursor-ew-resize">
-          <Move className="w-4 h-4 text-gray-600" />
-        </div>
-      </div>
-
-      {/* Loading Overlay */}
-      {isLoading && (
-        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20">
-          <Loader2 className="w-8 h-8 text-white animate-spin" />
+    <div className={cn("relative w-full", className)}>
+      {/* Loading skeleton */}
+      {(!imagesLoaded || isLoading) && (
+        <div className="relative w-full h-full overflow-hidden rounded-xl bg-gray-200 animate-pulse transition-opacity duration-300">
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200"></div>
+          <div className="absolute top-4 left-4 bg-gray-400 px-3 py-1 rounded-full text-sm font-medium w-16 h-6"></div>
+          <div className="absolute top-4 right-4 bg-gray-400 px-3 py-1 rounded-full text-sm font-medium w-12 h-6"></div>
         </div>
       )}
+      
+      {/* Before/After Images */}
+      <div 
+        className={cn(
+          "relative w-full h-full overflow-hidden rounded-xl cursor-col-resize select-none transition-opacity duration-500",
+          imagesLoaded && !isLoading ? 'opacity-100' : 'opacity-0 absolute'
+        )}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseMove={handleMouseMove}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onTouchStart={handleMouseDown}
+        onTouchEnd={handleMouseUp}
+        onTouchMove={handleTouchMove}
+        aria-label="Before and after virtual staging slider"
+      >
+        {/* Before Image (Original) */}
+        {beforeImageUrl && (
+          <div className="absolute inset-0">
+            <Image
+              src={beforeImageUrl}
+              alt="Original image"
+              fill
+              className={objectFitClass}
+              onLoad={() => console.log("Before image loaded")}
+              onError={(e) => console.error("Error loading before image:", beforeImageUrl, e)}
+              unoptimized
+            />
+            <div className="absolute top-4 left-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm font-medium">
+              Original
+            </div>
+          </div>
+        )}
 
-      {/* Instructions */}
-      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-75 text-white px-3 py-1 rounded text-xs">
-        Drag to compare
+        {/* After Image (Staged) */}
+        {afterImageUrl && (
+          <div
+            className="absolute inset-0 overflow-hidden"
+            style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
+          >
+            <Image
+              src={afterImageUrl}
+              alt="Staged image"
+              fill
+              className={objectFitClass}
+              onLoad={() => console.log("After image loaded")}
+              onError={(e) => console.error("Error loading after image:", afterImageUrl, e)}
+              unoptimized
+            />
+            <div className="absolute top-4 right-4 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+              Staged
+            </div>
+          </div>
+        )}
+
+        {/* Drag Line */}
+        <div
+          className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg z-10 pointer-events-none"
+          style={{ left: `${position}%` }}
+        >
+          {/* Drag Handle */}
+          <div 
+            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow-lg border-2 border-gray-200 cursor-col-resize pointer-events-auto flex items-center justify-center"
+            onMouseDown={handleMouseDown}
+          >
+            <div className="w-1 h-4 bg-gray-400 rounded-full"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Slider Input */}
+      <div className="md:hidden mt-4">
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={position}
+          onChange={(e) => {
+            setPosition(Number(e.target.value));
+            setLastInteractionTime(Date.now());
+          }}
+          onTouchStart={() => setIsMobileSliderActive(true)}
+          onTouchEnd={() => {
+            setIsMobileSliderActive(false);
+            setLastInteractionTime(Date.now());
+          }}
+          onMouseDown={() => setIsMobileSliderActive(true)}
+          onMouseUp={() => {
+            setIsMobileSliderActive(false);
+            setLastInteractionTime(Date.now());
+          }}
+          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+          style={{
+            background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${position}%, #e5e7eb ${position}%, #e5e7eb 100%)`
+          }}
+        />
+        <div className="flex justify-between text-xs text-gray-500 mt-1">
+          <span>Original</span>
+          <span>Staged</span>
+        </div>
       </div>
     </div>
   );
