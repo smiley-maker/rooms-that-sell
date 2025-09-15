@@ -43,6 +43,7 @@ export default defineSchema({
     stagedUrl: v.optional(v.string()), // Cloudflare R2 URL for the staged version
     imageKey: v.optional(v.string()), // R2 storage key for the original image
     stagedKey: v.optional(v.string()), // R2 storage key for the staged version
+    currentVersionId: v.optional(v.id("imageVersions")),
     roomType: v.string(),
     filename: v.string(), // Original filename from user upload
     fileSize: v.number(),
@@ -78,6 +79,39 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_status", ["status"])
     .index("by_compliance", ["mlsCompliance.isCompliant"]),
+
+  imageVersions: defineTable({
+    imageId: v.id("images"),
+    projectId: v.id("projects"),
+    userId: v.id("users"),
+    stagedUrl: v.string(),
+    stagedKey: v.string(),
+    stylePreset: v.string(),
+    customPrompt: v.optional(v.string()),
+    seed: v.number(),
+    aiModel: v.string(),
+    processingTime: v.number(),
+    pinned: v.boolean(),
+    mlsCompliance: v.optional(v.object({
+      isCompliant: v.boolean(),
+      score: v.number(),
+      violations: v.array(v.string()),
+      warnings: v.array(v.string()),
+      lastChecked: v.number(),
+      structuralPreservation: v.object({
+        validated: v.boolean(),
+        confidence: v.number(),
+        issues: v.array(v.string()),
+      }),
+      watermarkApplied: v.boolean(),
+    })),
+    createdAt: v.number(),
+  })
+    .index("by_imageId", ["imageId"]) 
+    .index("by_projectId", ["projectId"]) 
+    .index("by_userId", ["userId"]) 
+    .index("by_createdAt", ["createdAt"]) 
+    .index("by_pinned", ["pinned"]),
 
   stagingJobs: defineTable({
     userId: v.id("users"),

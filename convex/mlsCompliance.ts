@@ -175,10 +175,43 @@ export const applyImageWatermark = action({
       const watermarkedImageUrl = await applyWatermark(image.stagedUrl, watermarkOptions);
 
       // Update the image with watermarked version
+      let seed = Date.now();
+      let stylePreset = image.metadata?.stylePreset || "unknown";
+      let aiModel = image.metadata?.aiModel || "gemini-2.5-flash-image-preview";
+      let processingTime = image.metadata?.processingTime || 0;
+      if (image.currentVersionId) {
+        try {
+          type ImageVersionRecord = {
+            _id: Id<"imageVersions">;
+            imageId: Id<"images">;
+            seed: number;
+            stylePreset: string;
+            aiModel: string;
+            processingTime: number;
+          };
+          const versions = (await ctx.runQuery(api.images.listImageVersions, { imageId: args.imageId })) as ImageVersionRecord[];
+          const currentVersion = versions.find(v => v._id === image.currentVersionId);
+          if (currentVersion && currentVersion.imageId === args.imageId) {
+            seed = currentVersion.seed ?? seed;
+            stylePreset = currentVersion.stylePreset || stylePreset;
+            aiModel = currentVersion.aiModel || aiModel;
+            processingTime = currentVersion.processingTime ?? processingTime;
+          }
+        } catch {}
+      }
+
       await ctx.runMutation(api.images.updateImageWithStagedResult, {
         imageId: args.imageId,
         stagedUrl: watermarkedImageUrl,
         stagedKey: image.stagedKey || `staged/${args.imageId}_watermarked.jpg`,
+        version: {
+          stylePreset,
+          customPrompt: undefined,
+          seed,
+          aiModel,
+          processingTime,
+          pinned: false,
+        },
       });
 
       // Update compliance status

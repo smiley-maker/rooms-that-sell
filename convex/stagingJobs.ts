@@ -289,6 +289,14 @@ export const processStagingJob = action({
               imageId: image._id,
               stagedUrl: r2StagedUrl,
               stagedKey: stagedKey,
+              version: {
+                stylePreset: job.stylePreset,
+                customPrompt: job.customPrompt,
+                seed: job.createdAt,
+                aiModel: "gemini-2.5-flash-image-preview",
+                processingTime: stagingResult.processingTime,
+                pinned: false,
+              },
             });
 
             // Update image metadata with AI processing info

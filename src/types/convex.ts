@@ -32,6 +32,7 @@ export interface Image {
   stagedUrl?: string;
   imageKey?: string;
   stagedKey?: string;
+  currentVersionId?: Id<"imageVersions">;
   roomType: string;
   filename: string;
   fileSize: number;
@@ -44,6 +45,24 @@ export interface Image {
   mlsCompliance?: MLSCompliance;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface ImageVersion {
+  _id: Id<"imageVersions">;
+  _creationTime: number;
+  imageId: Id<"images">;
+  projectId: Id<"projects">;
+  userId: Id<"users">;
+  stagedUrl: string;
+  stagedKey: string;
+  stylePreset: string;
+  customPrompt?: string;
+  seed: number;
+  aiModel: string;
+  processingTime: number;
+  pinned: boolean;
+  mlsCompliance?: MLSCompliance;
+  createdAt: number;
 }
 
 // Project types

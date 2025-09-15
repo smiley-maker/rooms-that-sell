@@ -625,11 +625,38 @@ export const updateImageWithStagedResult = mutation({
     imageId: v.id("images"),
     stagedUrl: v.string(),
     stagedKey: v.string(),
+    version: v.object({
+      stylePreset: v.string(),
+      customPrompt: v.optional(v.string()),
+      seed: v.number(),
+      aiModel: v.string(),
+      processingTime: v.number(),
+      pinned: v.optional(v.boolean()),
+    }),
   },
   handler: async (ctx, args) => {
+    const image = await ctx.db.get(args.imageId);
+    if (!image) throw new Error("Image not found");
+
+    const versionId = await ctx.db.insert("imageVersions", {
+      imageId: args.imageId,
+      projectId: image.projectId,
+      userId: image.userId,
+      stagedUrl: args.stagedUrl,
+      stagedKey: args.stagedKey,
+      stylePreset: args.version.stylePreset,
+      customPrompt: args.version.customPrompt,
+      seed: args.version.seed,
+      aiModel: args.version.aiModel,
+      processingTime: args.version.processingTime,
+      pinned: args.version.pinned ?? false,
+      createdAt: Date.now(),
+    });
+
     await ctx.db.patch(args.imageId, {
       stagedUrl: args.stagedUrl,
       stagedKey: args.stagedKey,
+      currentVersionId: versionId,
       status: "staged",
       updatedAt: Date.now(),
     });
@@ -649,12 +676,24 @@ export const updateImageMetadata = mutation({
       stylePreset: v.optional(v.string()),
       aiModel: v.optional(v.string()),
     }),
+    versionId: v.optional(v.id("imageVersions")),
+    updatePinned: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.imageId, {
       metadata: args.metadata,
       updatedAt: Date.now(),
     });
+
+    // Optionally reflect metadata onto a specific version and/or toggle pin
+    if (args.versionId) {
+      const version = await ctx.db.get(args.versionId);
+      if (version && version.imageId === args.imageId) {
+        if (typeof args.updatePinned === 'boolean') {
+          await ctx.db.patch(args.versionId, { pinned: args.updatePinned });
+        }
+      }
+    }
   },
 });
 
@@ -820,6 +859,95 @@ export const getProjectImagesByStatus = query({
     }
 
     return images;
+  },
+});
+
+/**
+ * List versions for an image
+ */
+export const listImageVersions = query({
+  args: {
+    imageId: v.id("images"),
+  },
+  handler: async (ctx, args) => {
+    // Auth via parent image ownership
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const image = await ctx.db.get(args.imageId);
+    if (!image) throw new Error("Image not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!user || user._id !== image.userId) throw new Error("Access denied");
+
+    const versions = await ctx.db
+      .query("imageVersions")
+      .withIndex("by_imageId", (q) => q.eq("imageId", args.imageId))
+      .order("desc")
+      .collect();
+    return versions;
+  },
+});
+
+/**
+ * Pin or unpin an image version
+ */
+export const setImageVersionPinned = mutation({
+  args: {
+    versionId: v.id("imageVersions"),
+    pinned: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const version = await ctx.db.get(args.versionId);
+    if (!version) throw new Error("Version not found");
+
+    const image = await ctx.db.get(version.imageId);
+    if (!image) throw new Error("Parent image not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!user || user._id !== image.userId) throw new Error("Access denied");
+
+    await ctx.db.patch(args.versionId, { pinned: args.pinned });
+    return { success: true };
+  },
+});
+
+/**
+ * Set the current version pointer and copy staged fields
+ */
+export const setCurrentImageVersion = mutation({
+  args: {
+    imageId: v.id("images"),
+    versionId: v.id("imageVersions"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const image = await ctx.db.get(args.imageId);
+    if (!image) throw new Error("Image not found");
+    const version = await ctx.db.get(args.versionId);
+    if (!version || version.imageId !== args.imageId) throw new Error("Version not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!user || user._id !== image.userId) throw new Error("Access denied");
+
+    await ctx.db.patch(args.imageId, {
+      currentVersionId: args.versionId,
+      stagedUrl: version.stagedUrl,
+      stagedKey: version.stagedKey,
+      updatedAt: Date.now(),
+    });
+    return { success: true };
   },
 });
 

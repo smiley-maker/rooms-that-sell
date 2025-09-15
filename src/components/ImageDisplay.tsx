@@ -85,13 +85,11 @@ export function ImageDisplay({
   return (
     <Image
       src={imageUrl}
-      alt={alt}
+      alt={alt || "User image"}
+      className={className}
       fill
-      className={`object-cover ${className}`}
-      onError={() => {
-        setError("Image failed to load");
-        setImageUrl(null);
-      }}
+      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+      unoptimized // Required for external storage like R2
     />
   );
 }

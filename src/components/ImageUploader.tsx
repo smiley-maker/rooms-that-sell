@@ -259,7 +259,7 @@ export function ImageUploader({
 
     try {
       // Show initial progress notification
-      const progressToastId = notifications.loading("Starting upload...", {
+      let progressToastId = notifications.loading("Starting upload...", {
         description: `Uploading ${pendingFiles.length} files`,
       });
 
@@ -272,8 +272,8 @@ export function ImageUploader({
           completed++;
           
           // Update progress notification
-          notifications.dismiss(progressToastId);
-          notifications.loading(`Uploading files...`, {
+          notifications.dismiss(progressToastId); // Dismiss the old one
+          progressToastId = notifications.loading(`Uploading files...`, { // Create a new one and save its ID
             description: `${completed + failed} of ${pendingFiles.length} processed`,
           });
         } catch (uploadError) {
@@ -282,7 +282,7 @@ export function ImageUploader({
         }
       }
 
-      // Dismiss progress notification
+      // Dismiss the final progress notification
       notifications.dismiss(progressToastId);
 
       // Show final result notification

@@ -47,3 +47,4 @@ next-env.d.ts
 # Kiro
 # not committing docs for now until I have a chance to review them
 docs/
+.kiro/
