@@ -28,7 +28,7 @@ import { AuthenticatedNavbar } from "@/components";
 import { LeftRail } from "@/components/workspace/LeftRail";
 import { CanvasToolbar } from "@/components/workspace/CanvasToolbar";
 import { FullscreenView } from "@/components/workspace/FullscreenView";
-import { VersionsModal } from "@/components/workspace/VersionsModal";
+import { VersionsGalleryModal } from "@/components/workspace/VersionsGalleryModal";
 
 
 export default function ProjectDetailPage() {
@@ -362,8 +362,8 @@ export default function ProjectDetailPage() {
           />
 
           {/* Image Canvas */}
-          <div className="bg-white rounded-xl shadow-sm flex-1 flex flex-col min-h-0">
-            <div className="flex items-center justify-center flex-1 h-full p-4">
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex items-center justify-center flex-1 h-full">
               {isBatchMode ? (
                 <div className="h-full w-full overflow-y-auto">
                   <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -390,7 +390,7 @@ export default function ProjectDetailPage() {
                               key={`${image._id}-${image.updatedAt}`}
                               imageId={image._id}
                               isStaged={Boolean(image.stagedUrl)}
-                              className="h-full w-full object-cover"
+                              className="h-full w-full object-cover rounded-xl"
                               alt={image.filename}
                             />
                             {!image.stagedUrl && (
@@ -413,7 +413,7 @@ export default function ProjectDetailPage() {
                   </div>
                 </div>
               ) : activeImage ? (
-                <div className="relative flex h-full w-full items-center justify-center">
+                <div className="relative flex h-full w-full items-center justify-center rounded-lg">
                   {(() => {
                     if (!activeImageId || !activeImage) return null;
 
@@ -428,14 +428,14 @@ export default function ProjectDetailPage() {
                             key={`${activeImageId}-${activeImage.updatedAt}`}
                             imageId={activeImageId}
                             stagedUrl={activeImage.stagedUrl}
-                            className="h-full w-full rounded-lg object-contain shadow-inner"
+                            className="h-full w-full object-contain"
                           />
                         ) : (
                           <ImageDisplay
                             key={`${activeImageId}-${activeImage.updatedAt}`}
                             imageId={activeImageId}
                             isStaged={false}
-                            className="h-full w-full rounded-lg object-contain"
+                            className="h-full w-full object-cover rounded-lg"
                             alt={activeImage.filename}
                           />
                         )}
@@ -664,11 +664,11 @@ export default function ProjectDetailPage() {
 
       {/* Versions Modal */}
       {activeImageId && (
-        <VersionsModal
+        <VersionsGalleryModal
           isOpen={showVersionsModal}
           onClose={() => setShowVersionsModal(false)}
           imageId={activeImageId}
-            currentVersionId={localCurrentVersionId}
+          currentVersionId={localCurrentVersionId}
           onVersionChange={handleVersionChange}
         />
       )}

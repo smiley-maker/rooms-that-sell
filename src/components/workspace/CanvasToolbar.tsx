@@ -9,16 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Expand,
-  ZoomIn,
-  GitCompareArrows,
-  Sparkles,
-  Check,
-  Download,
-  Shrink,
-  Heart,
-} from "lucide-react";
+import { Expand, Sparkles, Check, Download, Shrink, Heart } from "lucide-react";
 import { Id } from "../../../convex/_generated/dataModel";
 import { VersionsDropdown } from "./VersionsDropdown";
 import { cn } from "@/lib/utils";
@@ -107,15 +98,15 @@ export function CanvasToolbar({
               {isFullscreen ? "Exit Fullscreen (Esc)" : "Fullscreen (F)"}
             </TooltipContent>
           </Tooltip>
-          <Tooltip>
+          {/* <Tooltip>
             <TooltipTrigger asChild>
               <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">
                 <ZoomIn className="w-5 h-5" />
               </button>
             </TooltipTrigger>
             <TooltipContent>Zoom 100%</TooltipContent>
-          </Tooltip>
-          {!isOriginalImage && (
+          </Tooltip> */}
+          {/* {!isOriginalImage && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">
@@ -124,7 +115,7 @@ export function CanvasToolbar({
               </TooltipTrigger>
               <TooltipContent>Before/After</TooltipContent>
             </Tooltip>
-          )}
+          )} */}
         </div>
 
         {/* Center: Versions and Progress */}

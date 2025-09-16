@@ -86,7 +86,7 @@ export function LeftRail({
                 >
                   <button
                     type="button"
-                    className={`absolute top-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border bg-white text-gray-600 shadow-sm transition-colors ${
+                    className={`absolute top-2 left-2 z-10 flex h-6 w-6 items-center justify-center rounded-md border bg-white/90 text-gray-600 shadow-sm transition-colors ${
                       isSelected ? "border-indigo-500 text-indigo-600" : "border-gray-200"
                     }`}
                     title={isSelected ? "Remove from batch" : "Add to batch"}
@@ -96,7 +96,7 @@ export function LeftRail({
                     }}
                     aria-pressed={isSelected}
                   >
-                    {isSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                    {isSelected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
                   </button>
 
                   <ImageDisplay
@@ -111,9 +111,7 @@ export function LeftRail({
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent"></div>
                     </div>
                   )}
-                  <div className="absolute inset-x-0 bottom-0 bg-black/40 px-2 py-1 text-xs text-white truncate">
-                    {image.filename}
-                  </div>
+                  {/* Filename removed for cleaner thumbnails */}
                 </div>
               );
             })}
@@ -149,9 +147,9 @@ export function LeftRail({
       </div>
 
       <div className="space-y-2 overflow-y-auto flex-1 pr-2 -mr-2 pb-4">
+        {renderSection("uploaded", organizedImages.uploaded, uploadedCollapsed, () => setUploadedCollapsed(!uploadedCollapsed))}
         {renderSection("staged", organizedImages.staged, stagedCollapsed, () => setStagedCollapsed(!stagedCollapsed))}
         {renderSection("approved", organizedImages.approved, approvedCollapsed, () => setApprovedCollapsed(!approvedCollapsed))}
-        {renderSection("uploaded", organizedImages.uploaded, uploadedCollapsed, () => setUploadedCollapsed(!uploadedCollapsed))}
       </div>
 
       <div className="pt-4 mt-auto">
