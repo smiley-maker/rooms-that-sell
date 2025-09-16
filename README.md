@@ -101,6 +101,8 @@ RoomsThatSell is a professional virtual staging platform that helps real estate 
 
 ## 🚀 Getting Started
 
+> **⚠️ Important Notice**: This is a proprietary business repository for RoomsThatSell SaaS. The code is protected by copyright and is not open source. See [LICENSE](LICENSE) for details.
+
 ### Development Setup
 
 1. **Clone the repository**
@@ -165,11 +167,13 @@ The project uses comprehensive testing strategies:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is proprietary software. See the [LICENSE](LICENSE) file for details.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our contributing guidelines for details on how to submit pull requests, report issues, and suggest features.
+We welcome contributions from authorized team members and collaborators! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on how to submit pull requests, report issues, and suggest features.
+
+**Note**: This is a proprietary business repository. All contributors must be authorized and agree to our terms before contributing.
 
 ## 📞 Support
 
