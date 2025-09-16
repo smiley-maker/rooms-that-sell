@@ -312,17 +312,6 @@ export const processStagingJob = action({
               },
             });
 
-            // Validate MLS compliance in background
-            try {
-              await ctx.runAction(api.mlsCompliance.validateImageCompliance, {
-                imageId: image._id,
-              });
-              logger.debug("stagingJobs.process: compliance validated", { imageId: String(image._id) });
-            } catch (complianceError) {
-              console.warn(`Failed to validate compliance for image ${image._id}:`, complianceError);
-              // Don't fail the staging job for compliance validation errors
-            }
-
             results.push({
               imageId: image._id,
               stagedUrl: r2StagedUrl,

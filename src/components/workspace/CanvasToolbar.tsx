@@ -32,6 +32,7 @@ type CanvasToolbarProps = {
   isRightPanelVisible: boolean;
   isFullscreen: boolean;
   isMultiSelect?: boolean;
+  selectedCount?: number;
   onToggleFullscreen: () => void;
   onToggleRightPanel: () => void;
   onApprove: () => void;
@@ -49,6 +50,7 @@ export function CanvasToolbar({
   isRightPanelVisible,
   isFullscreen,
   isMultiSelect = false,
+  selectedCount,
   onToggleFullscreen,
   onToggleRightPanel,
   onApprove,
@@ -129,21 +131,22 @@ export function CanvasToolbar({
         <div className="flex-1 flex justify-center items-center px-4 sm:px-8">
           {isRegenerating ? (
             <div className="w-full max-w-xs">
-              <div className="flex items-center gap-2 text-sm text-indigo-600 font-medium">
-                <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                <span>
-                  {isOriginalImage ? "Generating..." : "Regenerating..."}
-                </span>
+              <div className="flex items-center gap-2 text-sm font-medium text-indigo-600">
+                <div className="h-4 w-4 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin"></div>
+                <span>{isOriginalImage ? "Generating..." : "Regenerating..."}</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-1 mt-1">
-                <div
-                  className="bg-indigo-600 h-1 rounded-full"
-                  style={{ width: "60%" }}
-                ></div>
+              <div className="mt-1 h-1 w-full rounded-full bg-gray-200">
+                <div className="h-1 w-[60%] rounded-full bg-indigo-600"></div>
               </div>
             </div>
+          ) : isMultiSelect ? (
+            <span className="px-3 py-1.5 text-sm font-medium text-indigo-600">
+              {selectedCount && selectedCount > 1
+                ? `${selectedCount} images selected`
+                : "Multiple images selected"}
+            </span>
           ) : isOriginalImage ? (
-            <span className="px-3 py-1.5 text-sm text-gray-700 font-medium">
+            <span className="px-3 py-1.5 text-sm font-medium text-gray-700">
               Original Image
             </span>
           ) : activeImageId ? (
@@ -196,7 +199,7 @@ export function CanvasToolbar({
               <button
                 className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 onClick={onApprove}
-                disabled={!activeImageId || activeImageStatus !== "staged"}
+                disabled={!activeImageId || activeImageStatus !== "staged" || isMultiSelect}
               >
                 <Check className="w-5 h-5" />
               </button>
@@ -208,7 +211,7 @@ export function CanvasToolbar({
               <button
                 className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 onClick={onShowDownloadDialog}
-                disabled={!activeImageId}
+                disabled={(!activeImageId && !isMultiSelect) || (isMultiSelect && (!selectedCount || selectedCount === 0))}
               >
                 <Download className="w-5 h-5" />
               </button>

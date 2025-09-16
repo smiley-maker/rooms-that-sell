@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -20,7 +20,9 @@ import {
   ChevronDown,
   Sparkles,
   Star,
-  ImageIcon as ImageIconLucide
+  ImageIcon as ImageIconLucide,
+  CheckCircle2,
+  Info
 } from "lucide-react";
 import { AuthenticatedNavbar } from "@/components";
 import { LeftRail } from "@/components/workspace/LeftRail";
@@ -35,6 +37,12 @@ export default function ProjectDetailPage() {
 
   // Workspace state
   const [activeImageId, setActiveImageId] = useState<Id<"images"> | null>(null);
+  const [selectedImageIds, setSelectedImageIds] = useState<Id<"images">[]>([]);
+  const [pendingImageMap, setPendingImageMap] = useState<Record<string, number>>({});
+  const [showBatchComplete, setShowBatchComplete] = useState(false);
+  const [lastCompletedCount, setLastCompletedCount] = useState(0);
+  const lastBatchCountRef = useRef(0);
+  const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Form state for staging controls
   const [roomType, setRoomType] = useState("kitchen");
@@ -60,10 +68,47 @@ export default function ProjectDetailPage() {
   // Data queries
   const project = useQuery(api.projects.getProject, { projectId });
   const images = useQuery(api.images.getProjectImages, { projectId });
+
+  const selectedImages = useMemo(() => {
+    if (!images) return [] as Image[];
+    const map = new Map(images.map((img) => [img._id, img] as const));
+    return selectedImageIds
+      .map((id) => map.get(id))
+      .filter((img): img is Image => Boolean(img));
+  }, [images, selectedImageIds]);
+
+  const pendingIdStrings = useMemo(() => Object.keys(pendingImageMap), [pendingImageMap]);
+  const pendingImageIds = useMemo(
+    () => pendingIdStrings.map((id) => id as Id<"images">),
+    [pendingIdStrings]
+  );
+  const pendingIdSet = useMemo(() => new Set(pendingIdStrings), [pendingIdStrings]);
+
+  const isBatchMode = selectedImages.length > 1;
+  const hasSelection = selectedImageIds.length > 0;
+  const activeIsPending = activeImageId ? pendingIdSet.has(String(activeImageId)) : false;
+
+  const toggleSelectImage = (imageId: Id<"images">) => {
+    setSelectedImageIds((prev) =>
+      prev.includes(imageId)
+        ? prev.filter((id) => id !== imageId)
+        : [...prev, imageId]
+    );
+  };
+
+  const selectAllImages = () => {
+    if (!images) return;
+    setSelectedImageIds(images.map((img) => img._id));
+  };
+
+  const clearSelection = () => {
+    setSelectedImageIds([]);
+  };
   
   // Mutations
   const createStagingJob = useMutation(api.stagingJobs.createStagingJob);
   const approveImage = useMutation(api.images.approveImage);
+  const updateRoomTypeMutation = useMutation(api.images.updateImageRoomType);
 
   // Set default active image if none selected
   useEffect(() => {
@@ -71,6 +116,64 @@ export default function ProjectDetailPage() {
       setActiveImageId(images[0]._id);
     }
   }, [activeImageId, images]);
+
+  useEffect(() => {
+    if (!images) return;
+    const imageSet = new Set(images.map((img) => img._id));
+    setSelectedImageIds((prev) => {
+      const filtered = prev.filter((id) => imageSet.has(id));
+      return filtered.length === prev.length ? prev : filtered;
+    });
+  }, [images]);
+
+  useEffect(() => {
+    if (selectedImageIds.length > 0) {
+      if (!activeImageId || !selectedImageIds.includes(activeImageId)) {
+        setActiveImageId(selectedImageIds[0]);
+      }
+    }
+  }, [selectedImageIds, activeImageId]);
+
+  useEffect(() => {
+    if (!images) return;
+    setPendingImageMap((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const [id, startedAt] of Object.entries(prev)) {
+        const image = images.find((img) => String(img._id) === id);
+        if (!image) {
+          delete next[id];
+          changed = true;
+          continue;
+        }
+        if (image.status !== "processing" && image.updatedAt > startedAt) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [images]);
+
+  useEffect(() => {
+    if (pendingIdStrings.length === 0 && lastBatchCountRef.current > 0) {
+      setLastCompletedCount(lastBatchCountRef.current);
+      setShowBatchComplete(true);
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current);
+      }
+      completionTimeoutRef.current = setTimeout(() => setShowBatchComplete(false), 3000);
+      lastBatchCountRef.current = 0;
+    }
+  }, [pendingIdStrings]);
+
+  useEffect(() => {
+    return () => {
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Update form state when active image changes
   useEffect(() => {
@@ -98,7 +201,7 @@ export default function ProjectDetailPage() {
   }, []);
 
   const activeImage = images?.find(img => img._id === activeImageId);
-  const isOriginalImage = activeImage?.status === "uploaded";
+  const isOriginalImage = !isBatchMode && activeImage?.status === "uploaded";
 
   // Organize images by status
   const organizedImages = {
@@ -124,19 +227,49 @@ export default function ProjectDetailPage() {
 
   // Handle regenerate staging
   const handleRegenerate = async () => {
-    if (!activeImageId) return;
-    
+    const targetImageIds = selectedImageIds.length > 0
+      ? selectedImageIds
+      : activeImageId
+        ? [activeImageId]
+        : [];
+
+    if (targetImageIds.length === 0) return;
+
+    const startTimestamp = Date.now();
+    setPendingImageMap((prev) => {
+      const next = { ...prev };
+      targetImageIds.forEach((id) => {
+        next[String(id)] = startTimestamp;
+      });
+      return next;
+    });
+    if (targetImageIds.length > 1) {
+      lastBatchCountRef.current = targetImageIds.length;
+    } else {
+      lastBatchCountRef.current = 0;
+    }
+    setShowBatchComplete(false);
     setIsRegenerating(true);
     try {
       await createStagingJob({
         projectId,
-        imageIds: [activeImageId],
+        imageIds: targetImageIds,
         stylePreset,
         customPrompt: customPrompt || undefined
       });
       // Note: The actual staging will be handled by the job processor
     } catch (error) {
       console.error("Failed to create staging job:", error);
+      setPendingImageMap((prev) => {
+        const next = { ...prev };
+        targetImageIds.forEach((id) => {
+          if (next[String(id)] === startTimestamp) {
+            delete next[String(id)];
+          }
+        });
+        return next;
+      });
+      lastBatchCountRef.current = 0;
     } finally {
       setIsRegenerating(false);
     }
@@ -144,7 +277,7 @@ export default function ProjectDetailPage() {
 
   // Handle approve image
   const handleApprove = async () => {
-    if (!activeImageId) return;
+    if (!activeImageId || selectedImageIds.length > 1) return;
     
     try {
       await approveImage({ imageId: activeImageId });
@@ -189,6 +322,11 @@ export default function ProjectDetailPage() {
           organizedImages={organizedImages}
           activeImageId={activeImageId}
           setActiveImageId={setActiveImageId}
+          selectedImageIds={selectedImageIds}
+          pendingImageIds={pendingImageIds}
+          onToggleSelect={toggleSelectImage}
+          onSelectAll={selectAllImages}
+          onClearSelection={clearSelection}
           stagedCollapsed={stagedCollapsed}
           setStagedCollapsed={setStagedCollapsed}
           approvedCollapsed={approvedCollapsed}
@@ -200,6 +338,11 @@ export default function ProjectDetailPage() {
 
         {/* Center Column - Canvas */}
         <div className={`transition-all duration-300 ${isRightPanelVisible ? 'xl:col-span-6' : 'xl:col-span-9'} flex flex-col gap-4 lg:gap-6 min-h-0`}>
+          {showBatchComplete && (
+            <div className="mx-auto flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 shadow-sm">
+              <CheckCircle2 className="h-4 w-4" /> Updated {lastCompletedCount} image{lastCompletedCount === 1 ? "" : "s"}
+            </div>
+          )}
           <CanvasToolbar
             isOriginalImage={isOriginalImage}
             isRegenerating={isRegenerating}
@@ -208,6 +351,8 @@ export default function ProjectDetailPage() {
             currentVersionId={localCurrentVersionId}
             isRightPanelVisible={isRightPanelVisible}
             isFullscreen={isFullscreen}
+            isMultiSelect={isBatchMode}
+            selectedCount={isBatchMode ? selectedImages.length : undefined}
             onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
             onToggleRightPanel={() => setIsRightPanelVisible(!isRightPanelVisible)}
             onApprove={handleApprove}
@@ -219,29 +364,85 @@ export default function ProjectDetailPage() {
           {/* Image Canvas */}
           <div className="bg-white rounded-xl shadow-sm flex-1 flex flex-col min-h-0">
             <div className="flex items-center justify-center flex-1 h-full p-4">
-              {activeImageId ? (
-                <div className="w-full h-full relative flex items-center justify-center">
+              {isBatchMode ? (
+                <div className="h-full w-full overflow-y-auto">
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm font-medium text-gray-700">
+                      Batch editing • {selectedImages.length} images selected
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full shadow-sm">
+                      <Info className="h-3.5 w-3.5 text-gray-500" />
+                      <span className="leading-none">Click any card to focus it, open fullscreen, or tweak versions while keeping batch settings.</span>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 auto-rows-[minmax(140px,_1fr)]">
+                    {selectedImages.map((image) => {
+                      const isPending = pendingIdSet.has(String(image._id));
+                      return (
+                        <div
+                          key={image._id}
+                          className="relative flex h-full cursor-pointer flex-col overflow-hidden rounded-lg border bg-gray-50 transition-colors hover:border-indigo-200"
+                          onClick={() => setActiveImageId(image._id)}
+                          title="Open this image for detailed controls"
+                        >
+                          <div className="relative flex-1 overflow-hidden bg-gray-100">
+                            <ImageDisplay
+                              key={`${image._id}-${image.updatedAt}`}
+                              imageId={image._id}
+                              isStaged={Boolean(image.stagedUrl)}
+                              className="h-full w-full object-cover"
+                              alt={image.filename}
+                            />
+                            {!image.stagedUrl && (
+                              <span className="absolute bottom-2 left-2 rounded-full bg-white/90 px-2 py-0.5 text-xs font-medium text-gray-700">
+                                pending staging
+                              </span>
+                            )}
+                            {isPending && (
+                              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+                                <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent"></div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="border-t bg-white px-3 py-2 text-xs text-gray-600 truncate">
+                            {image.filename}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : activeImage ? (
+                <div className="relative flex h-full w-full items-center justify-center">
                   {(() => {
-                    const activeImage = images?.find(img => img._id === activeImageId);
-                    if (!activeImage) return null;
+                    if (!activeImageId || !activeImage) return null;
 
-                    const aspectRatio = activeImage.dimensions.width && activeImage.dimensions.height ? `${activeImage.dimensions.width} / ${activeImage.dimensions.height}` : "16 / 9";
+                    const aspectRatio = activeImage.dimensions.width && activeImage.dimensions.height
+                      ? `${activeImage.dimensions.width} / ${activeImage.dimensions.height}`
+                      : "16 / 9";
 
                     return (
-                      <div style={{ aspectRatio }} className="w-full h-auto max-h-full">
+                      <div style={{ aspectRatio }} className="h-auto max-h-full w-full">
                         {activeImage.status === "staged" || activeImage.status === "approved" ? (
                           <ImageComparisonSlider
+                            key={`${activeImageId}-${activeImage.updatedAt}`}
                             imageId={activeImageId}
                             stagedUrl={activeImage.stagedUrl}
-                            className="w-full h-full object-contain rounded-lg shadow-inner"
+                            className="h-full w-full rounded-lg object-contain shadow-inner"
                           />
                         ) : (
                           <ImageDisplay
+                            key={`${activeImageId}-${activeImage.updatedAt}`}
                             imageId={activeImageId}
                             isStaged={false}
-                            className="w-full h-full object-contain rounded-lg"
+                            className="h-full w-full rounded-lg object-contain"
                             alt={activeImage.filename}
                           />
+                        )}
+                        {activeIsPending && (
+                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+                            <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent"></div>
+                          </div>
                         )}
                       </div>
                     );
@@ -249,7 +450,7 @@ export default function ProjectDetailPage() {
                 </div>
               ) : (
                 <div className="text-center text-gray-400">
-                  <ImageIconLucide className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <ImageIconLucide className="mx-auto mb-4 h-16 w-16 text-gray-300" />
                   <p className="text-lg font-medium">Select an image to start</p>
                   <p className="text-sm text-gray-500">Choose an image from the left panel to view and stage it.</p>
                 </div>
@@ -275,10 +476,40 @@ export default function ProjectDetailPage() {
             <div className="p-6 space-y-6 overflow-y-auto flex-1">
               {activeImageId ? (
                 <>
+                  {isBatchMode && (
+                    <div className="rounded-lg bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+                      Applying updates to <strong>{selectedImages.length}</strong> images.
+                      Regenerate will queue staging jobs for every selected photo using the settings below.
+                      <span className="mt-1 block text-xs text-indigo-700/80">
+                        Need a closer look? Select a thumbnail to inspect, tweak versions, or open fullscreen without leaving batch mode.
+                      </span>
+                    </div>
+                  )}
+
                   {/* Room Type */}
                   <div>
                     <Label htmlFor="roomType" className="block text-sm font-medium text-gray-700 mb-1.5">room type</Label>
-                    <Select value={roomType} onValueChange={setRoomType}>
+                    <Select
+                      value={roomType}
+                      onValueChange={async (value) => {
+                        setRoomType(value);
+
+                        if (!activeImageId) {
+                          return;
+                        }
+
+                        const active = images?.find((img) => img._id === activeImageId);
+                        if (active && active.roomType === value) {
+                          return;
+                        }
+
+                        try {
+                          await updateRoomTypeMutation({ imageId: activeImageId, roomType: value });
+                        } catch (error) {
+                          console.error("Failed to update room type:", error);
+                        }
+                      }}
+                    >
                       <SelectTrigger id="roomType" className="w-full capitalize bg-gray-50 border-gray-200 hover:bg-gray-100">
                         <SelectValue placeholder="Select a room type..." />
                       </SelectTrigger>
@@ -370,11 +601,19 @@ export default function ProjectDetailPage() {
                       ) : (
                         <>
                           <Sparkles className="w-4 h-4" />
-                          <span>Regenerate Staging</span>
+                          <span>
+                            {isBatchMode
+                              ? `Apply Style to ${selectedImages.length} Images`
+                              : "Regenerate Staging"}
+                          </span>
                         </>
                       )}
                     </button>
-                    <p className="text-xs text-gray-500 text-center mt-2">1 token will be used</p>
+                    <p className="text-xs text-gray-500 text-center mt-2">
+                      {isBatchMode
+                        ? `${selectedImages.length} credits will be used`
+                        : "1 credit will be used"}
+                    </p>
                   </div>
                 </>
               ) : (
@@ -420,7 +659,7 @@ export default function ProjectDetailPage() {
         isOpen={showDownloadDialog}
         onClose={() => setShowDownloadDialog(false)}
         projectId={projectId}
-        selectedImages={activeImageId ? [activeImageId] : []}
+        selectedImages={hasSelection ? selectedImageIds : activeImageId ? [activeImageId] : []}
       />
 
       {/* Versions Modal */}
