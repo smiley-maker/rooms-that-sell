@@ -33,7 +33,7 @@ function AuthenticatedNavbarContent() {
   };
 
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <nav className="bg-white rounded-full sticky top-0 z-50 w-full">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo and primary nav */}
@@ -72,9 +72,11 @@ function AuthenticatedNavbarContent() {
           </div>
 
           {/* User menu */}
-          <div className="hidden sm:ml-6 sm:flex sm:items-center space-x-4">
-            <CreditStatus showUpgradePrompt={false} />
-            <span className="text-sm text-gray-600">
+          <div className="hidden sm:ml-6 sm:flex sm:items-center space-x-2 lg:space-x-4">
+            <div className="hidden lg:block">
+              <CreditStatus showUpgradePrompt={false} />
+            </div>
+            <span className="hidden md:block text-sm text-gray-600 truncate max-w-32 lg:max-w-none">
               Welcome, {user?.firstName || user?.emailAddresses[0]?.emailAddress?.split('@')[0]}!
             </span>
             <UserButton 
@@ -127,22 +129,27 @@ function AuthenticatedNavbarContent() {
             })}
           </div>
           <div className="pt-4 pb-3 border-t border-gray-200">
-            <div className="flex items-center px-4 space-x-3">
-              <UserButton 
-                afterSignOutUrl="/"
-                appearance={{
-                  elements: {
-                    avatarBox: "w-10 h-10"
-                  }
-                }}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="text-base font-medium text-gray-800 truncate">
-                  {user?.firstName || user?.emailAddresses[0]?.emailAddress?.split('@')[0]}
+            <div className="px-4 space-y-3">
+              <div className="flex items-center space-x-3">
+                <UserButton 
+                  afterSignOutUrl="/"
+                  appearance={{
+                    elements: {
+                      avatarBox: "w-10 h-10"
+                    }
+                  }}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-base font-medium text-gray-800 truncate">
+                    {user?.firstName || user?.emailAddresses[0]?.emailAddress?.split('@')[0]}
+                  </div>
+                  <div className="text-sm text-gray-500 truncate">
+                    {user?.emailAddresses[0]?.emailAddress}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-500 truncate">
-                  {user?.emailAddresses[0]?.emailAddress}
-                </div>
+              </div>
+              <div className="pt-2">
+                <CreditStatus showUpgradePrompt={false} />
               </div>
             </div>
           </div>

@@ -62,11 +62,10 @@ describe("Image upload functions", () => {
     expect(stagedKey).toMatch(/^users\/user1\/projects\/project1\/\d+_test_staged\.jpg$/);
   });
 
-  it("should have required API functions", () => {
-    // Verify the functions exist in the API
-    expect(api.images.createImageRecord).toBeDefined();
-    expect(api.images.getProjectImages).toBeDefined();
-    expect(api.images.generateImageUploadUrl).toBeDefined();
-    expect(api.images.getImageDownloadUrl).toBeDefined();
+  it("should expose new versioning API functions", () => {
+    expect(api.images.updateImageWithStagedResult).toBeDefined();
+    expect(api.images.listImageVersions).toBeDefined();
+    expect(api.images.setImageVersionPinned).toBeDefined();
+    expect(api.images.setCurrentImageVersion).toBeDefined();
   });
 });

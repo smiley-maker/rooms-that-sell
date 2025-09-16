@@ -2,7 +2,8 @@ import { v } from "convex/values";
 import { action, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { getPlanConfig } from "./lib/stripeConfig";
-import { createStripeService } from "./lib/stripeService";
+import { createCheckoutSession as stripeCreateCheckoutSession, createPortalSession as stripeCreatePortalSession, updateSubscription as stripeUpdateSubscription } from "@integrations/stripe";
+import { z } from "zod";
 
 // Create Stripe checkout session
 export const createCheckoutSession = action({
@@ -13,8 +14,6 @@ export const createCheckoutSession = action({
     cancelUrl: v.string(),
   },
   handler: async (ctx, args): Promise<{ sessionId: string; url: string | null }> => {
-    const stripeService = createStripeService();
-    
     const user = await ctx.runQuery(api.users.getUserById, { userId: args.userId });
     if (!user) {
       throw new Error("User not found");
@@ -25,7 +24,7 @@ export const createCheckoutSession = action({
       throw new Error("Invalid plan selected");
     }
 
-    return await stripeService.createCheckoutSession({
+    const result = await stripeCreateCheckoutSession({
       customerEmail: user.email,
       priceId: planConfig.priceId,
       userId: args.userId,
@@ -33,6 +32,10 @@ export const createCheckoutSession = action({
       successUrl: args.successUrl,
       cancelUrl: args.cancelUrl,
     });
+
+    const CheckoutResponse = z.object({ sessionId: z.string().min(1), url: z.string().url().nullable() });
+    CheckoutResponse.parse(result);
+    return result;
   },
 });
 
@@ -43,17 +46,19 @@ export const createPortalSession = action({
     returnUrl: v.string(),
   },
   handler: async (ctx, args): Promise<{ url: string }> => {
-    const stripeService = createStripeService();
-    
     const user = await ctx.runQuery(api.users.getUserById, { userId: args.userId });
     if (!user || !user.stripeCustomerId) {
       throw new Error("User not found or no Stripe customer ID");
     }
 
-    return await stripeService.createPortalSession({
+    const result = await stripeCreatePortalSession({
       customerId: user.stripeCustomerId,
       returnUrl: args.returnUrl,
     });
+
+    const PortalResponse = z.object({ url: z.string().url() });
+    PortalResponse.parse(result);
+    return result;
   },
 });
 
@@ -163,8 +168,6 @@ export const getUserSubscription = query({
 export const cancelSubscription = action({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    const stripeService = createStripeService();
-    
     // Get subscription using internal function to avoid circular dependency
     const subscription = await ctx.runQuery(internal.lib.stripeInternal.getSubscriptionByUserIdInternal, { 
       userId: args.userId 
@@ -173,7 +176,7 @@ export const cancelSubscription = action({
       throw new Error("No active subscription found");
     }
 
-    await stripeService.updateSubscription({
+    await stripeUpdateSubscription({
       subscriptionId: subscription.stripeSubscriptionId,
       cancelAtPeriodEnd: true,
     });

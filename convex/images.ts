@@ -1,5 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query, action } from "./_generated/server";
+import { presignPut } from "@integrations/r2";
+import { logger } from "./lib/logger";
+import { z } from "zod";
 import { api } from "./_generated/api";
 
 /**
@@ -88,33 +91,21 @@ export const generateImageUploadUrl = action({
         throw new Error("Missing required R2 environment variables");
       }
 
-      // Use AWS SDK to generate pre-signed URL
-      const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
-      const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
-
-      const r2Client = new S3Client({
-        region: "auto",
-        endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-        credentials: {
-          accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-          secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-        },
-      });
-
-      const command = new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_OG!,
-        Key: imageKey,
-        ContentType: args.contentType,
-        Metadata: {
-          userId: user._id,
-          projectId: args.projectId,
+      // Use integrations adapter to generate pre-signed URL
+      const { url: uploadUrl } = await presignPut({
+        key: imageKey,
+        contentType: args.contentType,
+        expiresIn: 3600,
+        bucket: process.env.R2_BUCKET_OG!,
+        metadata: {
+          userId: String(user._id),
+          projectId: String(args.projectId),
           originalFilename: args.filename,
         },
       });
 
-      const uploadUrl: string = await getSignedUrl(r2Client, command, { 
-        expiresIn: 3600 // 1 hour
-      });
+      // Validate adapter response
+      z.string().url().parse(uploadUrl);
 
       return {
         uploadUrl,
@@ -122,7 +113,7 @@ export const generateImageUploadUrl = action({
         bucket: process.env.R2_BUCKET_OG!,
       };
     } catch (error) {
-      console.error("Failed to generate upload URL:", error);
+      logger.error("images.generateUploadUrl: failed", { error: error instanceof Error ? error.message : String(error) });
       throw new Error(`Failed to generate upload URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
@@ -428,7 +419,7 @@ export const getImageDownloadUrl = action({
     if (args.isStaged && image.stagedKey && image.stagedUrl && image.stagedUrl.includes('r2.cloudflarestorage.com')) {
       // Use staged image if it's a real R2 URL
       key = image.stagedKey;
-      bucket = process.env.R2_BUCKET_STYLIZED!;
+      bucket = process.env.R2_BUCKET_STAGED!;
     } else if (args.isStaged && image.stagedUrl && !image.stagedUrl.includes('r2.cloudflarestorage.com') && !image.stagedUrl.startsWith('data:')) {
       // If staged URL is a mock URL (not data URL), fall back to original image
       // console.log(`Staged image is mock URL, falling back to original for image ${args.imageId}`);
@@ -513,6 +504,95 @@ export const getImageById = query({
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.imageId);
+  },
+});
+
+/**
+ * Get a single image version by ID (helper query)
+ */
+export const getImageVersionById = query({
+  args: {
+    versionId: v.id("imageVersions"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.versionId);
+  },
+});
+
+/**
+ * Generate a downloadable URL for a specific image version
+ */
+export const getImageVersionDownloadUrl = action({
+  args: {
+    versionId: v.id("imageVersions"),
+  },
+  handler: async (ctx, args): Promise<string> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.runQuery(api.users.getCurrentUser, {});
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const version = await ctx.runQuery(api.images.getImageVersionById, {
+      versionId: args.versionId,
+    });
+    if (!version) {
+      throw new Error("Image version not found");
+    }
+
+    const image = await ctx.runQuery(api.images.getImageById, {
+      imageId: version.imageId,
+    });
+    if (!image || image.userId !== user._id) {
+      throw new Error("Access denied");
+    }
+
+    if (version.stagedUrl && version.stagedUrl.startsWith("data:")) {
+      return version.stagedUrl;
+    }
+
+    let bucket = process.env.R2_BUCKET_STAGED;
+    let key = version.stagedKey;
+
+    if (!key && version.stagedUrl && version.stagedUrl.includes("r2.cloudflarestorage.com")) {
+      const urlParts = version.stagedUrl.split("/");
+      if (urlParts.length >= 5) {
+        bucket = urlParts[3];
+        key = urlParts.slice(4).join("/");
+      }
+    }
+
+    if (!bucket || !key) {
+      throw new Error("Missing storage metadata for image version");
+    }
+
+    try {
+      const { S3Client, GetObjectCommand } = await import("@aws-sdk/client-s3");
+      const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
+
+      const r2Client = new S3Client({
+        region: "auto",
+        endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+        credentials: {
+          accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+          secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+        },
+      });
+
+      const command = new GetObjectCommand({
+        Bucket: bucket,
+        Key: key,
+      });
+
+      return await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+    } catch (error) {
+      console.error("Failed to generate version download URL:", error);
+      throw new Error("Failed to generate download URL");
+    }
   },
 });
 
@@ -634,11 +714,38 @@ export const updateImageWithStagedResult = mutation({
     imageId: v.id("images"),
     stagedUrl: v.string(),
     stagedKey: v.string(),
+    version: v.object({
+      stylePreset: v.string(),
+      customPrompt: v.optional(v.string()),
+      seed: v.number(),
+      aiModel: v.string(),
+      processingTime: v.number(),
+      pinned: v.optional(v.boolean()),
+    }),
   },
   handler: async (ctx, args) => {
+    const image = await ctx.db.get(args.imageId);
+    if (!image) throw new Error("Image not found");
+
+    const versionId = await ctx.db.insert("imageVersions", {
+      imageId: args.imageId,
+      projectId: image.projectId,
+      userId: image.userId,
+      stagedUrl: args.stagedUrl,
+      stagedKey: args.stagedKey,
+      stylePreset: args.version.stylePreset,
+      customPrompt: args.version.customPrompt,
+      seed: args.version.seed,
+      aiModel: args.version.aiModel,
+      processingTime: args.version.processingTime,
+      pinned: args.version.pinned ?? false,
+      createdAt: Date.now(),
+    });
+
     await ctx.db.patch(args.imageId, {
       stagedUrl: args.stagedUrl,
       stagedKey: args.stagedKey,
+      currentVersionId: versionId,
       status: "staged",
       updatedAt: Date.now(),
     });
@@ -658,12 +765,24 @@ export const updateImageMetadata = mutation({
       stylePreset: v.optional(v.string()),
       aiModel: v.optional(v.string()),
     }),
+    versionId: v.optional(v.id("imageVersions")),
+    updatePinned: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.imageId, {
       metadata: args.metadata,
       updatedAt: Date.now(),
     });
+
+    // Optionally reflect metadata onto a specific version and/or toggle pin
+    if (args.versionId) {
+      const version = await ctx.db.get(args.versionId);
+      if (version && version.imageId === args.imageId) {
+        if (typeof args.updatePinned === 'boolean') {
+          await ctx.db.patch(args.versionId, { pinned: args.updatePinned });
+        }
+      }
+    }
   },
 });
 
@@ -829,6 +948,95 @@ export const getProjectImagesByStatus = query({
     }
 
     return images;
+  },
+});
+
+/**
+ * List versions for an image
+ */
+export const listImageVersions = query({
+  args: {
+    imageId: v.id("images"),
+  },
+  handler: async (ctx, args) => {
+    // Auth via parent image ownership
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const image = await ctx.db.get(args.imageId);
+    if (!image) throw new Error("Image not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!user || user._id !== image.userId) throw new Error("Access denied");
+
+    const versions = await ctx.db
+      .query("imageVersions")
+      .withIndex("by_imageId", (q) => q.eq("imageId", args.imageId))
+      .order("desc")
+      .collect();
+    return versions;
+  },
+});
+
+/**
+ * Pin or unpin an image version
+ */
+export const setImageVersionPinned = mutation({
+  args: {
+    versionId: v.id("imageVersions"),
+    pinned: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const version = await ctx.db.get(args.versionId);
+    if (!version) throw new Error("Version not found");
+
+    const image = await ctx.db.get(version.imageId);
+    if (!image) throw new Error("Parent image not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!user || user._id !== image.userId) throw new Error("Access denied");
+
+    await ctx.db.patch(args.versionId, { pinned: args.pinned });
+    return { success: true };
+  },
+});
+
+/**
+ * Set the current version pointer and copy staged fields
+ */
+export const setCurrentImageVersion = mutation({
+  args: {
+    imageId: v.id("images"),
+    versionId: v.id("imageVersions"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const image = await ctx.db.get(args.imageId);
+    if (!image) throw new Error("Image not found");
+    const version = await ctx.db.get(args.versionId);
+    if (!version || version.imageId !== args.imageId) throw new Error("Version not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!user || user._id !== image.userId) throw new Error("Access denied");
+
+    await ctx.db.patch(args.imageId, {
+      currentVersionId: args.versionId,
+      stagedUrl: version.stagedUrl,
+      stagedKey: version.stagedKey,
+      updatedAt: Date.now(),
+    });
+    return { success: true };
   },
 });
 

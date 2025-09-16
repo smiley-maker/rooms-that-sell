@@ -254,9 +254,12 @@ export const getCreditStatus = query({
       return null;
     }
 
+    const totalCredits = user.plan === "trial" ? 10 : 100;
+
     return {
       credits: user.credits,
       plan: user.plan,
+      total: totalCredits,
       isLowBalance: user.credits <= 5,
       isZeroBalance: user.credits === 0,
       needsUpgrade: user.plan === "trial" && user.credits <= 2,

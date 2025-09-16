@@ -1,4 +1,4 @@
-import { AuthenticatedNavbar, AuthGuard } from "@/components";
+import { AuthGuard } from "@/components";
 
 export default function ProjectsLayout({
   children,
@@ -7,10 +7,7 @@ export default function ProjectsLayout({
 }) {
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-gray-50">
-        <AuthenticatedNavbar />
-        <main>{children}</main>
-      </div>
+      {children}
     </AuthGuard>
   );
 }

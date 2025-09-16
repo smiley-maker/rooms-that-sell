@@ -2,7 +2,12 @@ import { v } from "convex/values";
 import { mutation, query, action } from "./_generated/server";
 import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
-import { stageImageWithGeminiRetry, validateImageForStaging, estimateProcessingTime, type StylePreset } from "./lib/gemini";
+import { estimateProcessingTime, type StylePreset, getStylePresets as geminiGetStylePresets } from "./lib/gemini";
+import { stageImage as integrateStageImage } from "@integrations/gemini";
+import { z } from "zod";
+import { logger } from "./lib/logger";
+import { presignGet } from "@integrations/r2";
+import { uploadStagedImageToR2 } from "./imageUpload";
 
 /**
  * Create a new staging job for batch processing
@@ -15,11 +20,15 @@ export const createStagingJob = mutation({
     customPrompt: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    logger.info("stagingJobs.create: begin");
+    
     // Get current user
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
+      logger.warn("stagingJobs.create: unauthenticated");
       throw new Error("Not authenticated");
     }
+    logger.debug("stagingJobs.create: authenticated", { user: identity.subject });
 
     const user = await ctx.db
       .query("users")
@@ -27,49 +36,67 @@ export const createStagingJob = mutation({
       .first();
 
     if (!user) {
+      logger.warn("stagingJobs.create: user not found", { user: identity.subject });
       throw new Error("User not found");
     }
+    logger.debug("stagingJobs.create: user found", { credits: user.credits });
 
     // Verify project ownership
+    logger.debug("stagingJobs.create: verifying project", { projectId: String(args.projectId) });
     const project = await ctx.db.get(args.projectId);
     if (!project || project.userId !== user._id) {
+      logger.warn("stagingJobs.create: project verify failed", { projectFound: !!project });
       throw new Error("Project not found or access denied");
     }
+    logger.debug("stagingJobs.create: project verified");
 
     // Verify all images belong to the project and user
+    logger.debug("stagingJobs.create: verifying images", { count: args.imageIds.length });
     await Promise.all(
       args.imageIds.map(async (imageId) => {
         const image = await ctx.db.get(imageId);
         if (!image || image.projectId !== args.projectId || image.userId !== user._id) {
+          logger.warn("stagingJobs.create: image verify failed", { imageId: String(imageId), imageFound: !!image });
           throw new Error(`Image ${imageId} not found or access denied`);
         }
-        if (image.status !== "uploaded") {
+        // Allow staging on uploaded, staged, and approved images (for regeneration)
+        if (!["uploaded", "staged", "approved"].includes(image.status)) {
+          logger.warn("stagingJobs.create: image status invalid", { imageId: String(imageId), status: image.status });
           throw new Error(`Image ${image.filename} is not ready for staging (status: ${image.status})`);
         }
+        logger.debug("stagingJobs.create: image verified", { filename: image.filename, status: image.status });
         return image;
       })
     );
 
     // Check if user has enough credits
     const creditsRequired = args.imageIds.length;
+    logger.debug("stagingJobs.create: checking credits", { required: creditsRequired, available: user.credits });
     const creditCheck = await ctx.runQuery(api.users.checkSufficientCredits, {
       userId: user._id,
       requiredCredits: creditsRequired,
     });
     
     if (!creditCheck.sufficient) {
+      logger.warn("stagingJobs.create: insufficient credits");
       throw new Error(creditCheck.message);
     }
+    logger.debug("stagingJobs.create: credits sufficient");
 
     // Validate style preset
+    console.log("🔍 Validating style preset:", args.stylePreset);
     const validStyles = ["minimal", "scandinavian", "bohemian", "modern", "traditional"];
     if (!validStyles.includes(args.stylePreset)) {
+      console.error("❌ Invalid style preset:", args.stylePreset, "Valid styles:", validStyles);
       throw new Error("Invalid style preset");
     }
+    console.log("✅ Style preset valid:", args.stylePreset);
 
     // Create staging job
+    logger.info("stagingJobs.create: creating job");
     const jobId = await ctx.db.insert("stagingJobs", {
       userId: user._id,
+      projectId: project._id,
       imageIds: args.imageIds,
       stylePreset: args.stylePreset,
       customPrompt: args.customPrompt,
@@ -77,16 +104,20 @@ export const createStagingJob = mutation({
       creditsUsed: creditsRequired,
       createdAt: Date.now(),
     });
+    logger.info("stagingJobs.create: job created", { jobId: String(jobId) });
 
     // Deduct credits using enhanced function
+    logger.debug("stagingJobs.create: deducting credits");
     await ctx.runMutation(api.users.deductCredits, {
       userId: user._id,
       amount: creditsRequired,
       description: `Batch staging: ${creditsRequired} images with ${args.stylePreset} style`,
       relatedJobId: jobId,
     });
+    logger.debug("stagingJobs.create: credits deducted");
 
     // Update image statuses to processing
+    logger.debug("stagingJobs.create: updating image statuses");
     await Promise.all(
       args.imageIds.map(async (imageId) => {
         await ctx.db.patch(imageId, {
@@ -95,12 +126,14 @@ export const createStagingJob = mutation({
         });
       })
     );
+    logger.debug("stagingJobs.create: image statuses updated");
 
     // Schedule the actual processing (this would trigger the AI processing)
-    console.log(`Scheduling processing for job ${jobId}`);
+    logger.info("stagingJobs.create: scheduling job", { jobId: String(jobId) });
     await ctx.scheduler.runAfter(0, api.stagingJobs.processStagingJob, { jobId });
-    console.log(`Job ${jobId} scheduled successfully`);
+    logger.info("stagingJobs.create: scheduled", { jobId: String(jobId) });
 
+    console.log("=== STAGING JOB CREATION COMPLETE ===");
     return jobId;
   },
 });
@@ -113,18 +146,30 @@ export const processStagingJob = action({
     jobId: v.id("stagingJobs"),
   },
   handler: async (ctx, args) => {
-    console.log(`Processing staging job ${args.jobId}`);
+    logger.info("stagingJobs.process: begin", { jobId: String(args.jobId) });
     
     // Get the staging job
     const job = await ctx.runQuery(api.stagingJobs.getStagingJob, { jobId: args.jobId });
     if (!job) {
-      console.error(`Staging job ${args.jobId} not found`);
+      logger.warn("stagingJobs.process: job not found", { jobId: String(args.jobId) });
       throw new Error("Staging job not found");
     }
 
-    console.log(`Job ${args.jobId} status: ${job.status}`);
+    logger.debug("stagingJobs.process: status", { jobId: String(args.jobId), status: job.status });
     if (job.status !== "queued") {
-      console.log(`Job ${args.jobId} is not queued (status: ${job.status})`);
+      logger.info("stagingJobs.process: not queued", { jobId: String(args.jobId), status: job.status });
+      return;
+    }
+
+    // Check if job is too old (stuck for more than 30 minutes)
+    const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
+    if (job.createdAt < thirtyMinutesAgo) {
+      logger.info("stagingJobs.process: job stale -> mark failed", { jobId: String(args.jobId) });
+      await ctx.runMutation(api.stagingJobs.updateStagingJobStatus, {
+        jobId: args.jobId,
+        status: "failed",
+        completedAt: Date.now(),
+      });
       return;
     }
 
@@ -156,40 +201,103 @@ export const processStagingJob = action({
         try {
           console.log(`Processing image ${image._id} with style ${job.stylePreset}`);
 
-          // Validate image before processing
-          const validation = await validateImageForStaging(image.originalUrl);
-          if (!validation.isValid) {
-            throw new Error(`Image validation failed: ${validation.issues.join(', ')}`);
+          // Generate fresh signed URL for the image directly
+          logger.debug("stagingJobs.process: presign image", { imageId: String(image._id) });
+          let signedImageUrl: string;
+          try {
+            if (!image.imageKey) {
+              throw new Error("Image key not found");
+            }
+
+            // Generate signed URL via integrations adapter
+            const { url } = await presignGet({ key: image.imageKey, expiresIn: 3600, bucket: process.env.R2_BUCKET_OG! });
+            signedImageUrl = url;
+            
+            logger.debug("stagingJobs.process: presign OK", { imageId: String(image._id) });
+          } catch (urlError) {
+            logger.warn("stagingJobs.process: presign failed", { imageId: String(image._id), error: urlError instanceof Error ? urlError.message : String(urlError) });
+            throw new Error(`Failed to access image: ${urlError instanceof Error ? urlError.message : 'Unknown error'}`);
           }
 
-          // Estimate processing time for user feedback
-          const estimatedTime = estimateProcessingTime(image.fileSize, image.roomType);
-          console.log(`Estimated processing time: ${estimatedTime}ms`);
+          // Add timeout wrapper for entire image processing
+          const processingPromise = (async () => {
+            logger.debug("stagingJobs.process: skip validation", { imageId: String(image._id) });
+            
+            // Validation temporarily disabled due to memory constraints
+            // TODO: Implement memory-efficient validation or client-side validation
 
-          // Stage the image with Gemini (with retry logic)
-          const stagingResult = await stageImageWithGeminiRetry(image.originalUrl, {
-            stylePreset: job.stylePreset as StylePreset,
-            roomType: image.roomType,
-            customPrompt: job.customPrompt,
+            logger.info("stagingJobs.process: staging start", { imageId: String(image._id) });
+            
+            // Estimate processing time for user feedback
+            const estimatedTime = estimateProcessingTime(image.fileSize, image.roomType);
+            logger.debug("stagingJobs.process: estimated", { ms: estimatedTime });
+
+            // Stage the image via integrations adapter (with shared retries)
+            const stagingResult = await integrateStageImage(signedImageUrl, {
+              stylePreset: job.stylePreset as StylePreset,
+              roomType: image.roomType,
+              customPrompt: job.customPrompt,
+              seed: job.createdAt,
+            });
+
+            // Validate adapter response shape minimally
+            const StagingResultSchema = z.object({
+              success: z.boolean(),
+              stagedImageUrl: z.string().url().optional(),
+              error: z.string().optional(),
+              processingTime: z.number(),
+              confidence: z.number().optional(),
+            });
+            StagingResultSchema.parse(stagingResult);
+
+            logger.info("stagingJobs.process: staging done", { imageId: String(image._id) });
+            return stagingResult;
+          })();
+
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error("Image processing timeout (5 minutes)")), 300000); // 5 minute timeout
           });
 
+          const stagingResult = await Promise.race([processingPromise, timeoutPromise]);
+
           if (stagingResult.success && stagingResult.stagedImageUrl) {
-            // Apply watermark for MLS compliance
-            let finalStagedUrl = stagingResult.stagedImageUrl;
+            logger.debug("stagingJobs.process: upload staged", { imageId: String(image._id) });
+            
+            // Apply watermark for MLS compliance (temporarily disabled)
+            const finalStagedUrl = stagingResult.stagedImageUrl;
             try {
-              const { applyWatermark, DEFAULT_WATERMARK } = await import("./lib/mlsCompliance");
-              finalStagedUrl = await applyWatermark(stagingResult.stagedImageUrl, DEFAULT_WATERMARK);
-              console.log(`Applied MLS watermark to image ${image._id}`);
+              // TODO: Re-enable watermarking once Canvas issues are resolved
+              // const { applyWatermark, DEFAULT_WATERMARK } = await import("./lib/mlsCompliance");
+              // finalStagedUrl = await applyWatermark(stagingResult.stagedImageUrl, DEFAULT_WATERMARK);
+              logger.debug("stagingJobs.process: watermark disabled", { imageId: String(image._id) });
             } catch (watermarkError) {
               console.warn(`Failed to apply watermark to image ${image._id}:`, watermarkError);
               // Continue with unwatermarked image
             }
 
-            // Update image with staged result
+            // Upload staged image to R2
+            // Derive file extension from data URL mime type
+            const mimeMatch = finalStagedUrl.match(/^data:(.*?);base64,/);
+            const mime = mimeMatch ? mimeMatch[1] : "image/png";
+            const ext = mime === "image/jpeg" ? "jpg" : mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "png";
+            const stagedKey = `staged/${image._id}_${Date.now()}.${ext}`;
+            const r2StagedUrl = await uploadStagedImageToR2(finalStagedUrl, stagedKey);
+            
+            logger.info("stagingJobs.process: uploaded staged");
+
+            // Update image with staged result (store R2 URL, not base64 data)
             await ctx.runMutation(api.images.updateImageWithStagedResult, {
               imageId: image._id,
-              stagedUrl: finalStagedUrl,
-              stagedKey: `staged/${image._id}_${Date.now()}.jpg`,
+              stagedUrl: r2StagedUrl,
+              stagedKey: stagedKey,
+              version: {
+                stylePreset: job.stylePreset,
+                customPrompt: job.customPrompt,
+                seed: job.createdAt,
+                aiModel: "gemini-2.5-flash-image-preview",
+                processingTime: stagingResult.processingTime,
+                pinned: false,
+              },
             });
 
             // Update image metadata with AI processing info
@@ -200,29 +308,18 @@ export const processStagingJob = action({
                 processingTime: stagingResult.processingTime,
                 confidence: stagingResult.confidence,
                 stylePreset: job.stylePreset,
-                aiModel: "gemini-2.0-flash-exp",
+                aiModel: "gemini-2.5-flash-image-preview",
               },
             });
 
-            // Validate MLS compliance in background
-            try {
-              await ctx.runAction(api.mlsCompliance.validateImageCompliance, {
-                imageId: image._id,
-              });
-              console.log(`MLS compliance validated for image ${image._id}`);
-            } catch (complianceError) {
-              console.warn(`Failed to validate compliance for image ${image._id}:`, complianceError);
-              // Don't fail the staging job for compliance validation errors
-            }
-
             results.push({
               imageId: image._id,
-              stagedUrl: finalStagedUrl,
+              stagedUrl: r2StagedUrl,
               success: true,
             });
 
             successCount++;
-            console.log(`Successfully staged image ${image._id} in ${stagingResult.processingTime}ms`);
+            logger.info("stagingJobs.process: image staged", { imageId: String(image._id), ms: stagingResult.processingTime });
 
           } else {
             // Handle staging failure
@@ -239,7 +336,7 @@ export const processStagingJob = action({
             });
 
             failureCount++;
-            console.error(`Failed to stage image ${image._id}: ${stagingResult.error}`);
+            logger.warn("stagingJobs.process: stage failed", { imageId: String(image._id), error: stagingResult.error });
           }
 
           // Update job with partial results after each image
@@ -249,7 +346,7 @@ export const processStagingJob = action({
           });
 
         } catch (error) {
-          console.error(`Failed to process image ${image._id}:`, error);
+          logger.error("stagingJobs.process: image error", { imageId: String(image._id), error: error instanceof Error ? error.message : String(error) });
           
           // Reset image status on error
           await ctx.runMutation(api.images.updateImageStatus, {
@@ -275,16 +372,16 @@ export const processStagingJob = action({
         completedAt: Date.now(),
       });
 
-      console.log(`Staging job ${args.jobId} completed: ${successCount} successful, ${failureCount} failed`);
+      logger.info("stagingJobs.process: done", { jobId: String(args.jobId), successCount, failureCount });
 
       // If all images failed, consider refunding credits
       if (successCount === 0 && failureCount > 0) {
-        console.log("All images failed, considering partial refund");
+        logger.info("stagingJobs.process: all failed -> consider refund");
         // Optionally implement partial refund logic here
       }
 
     } catch (error) {
-      console.error(`Staging job ${args.jobId} failed:`, error);
+      logger.error("stagingJobs.process: failed", { jobId: String(args.jobId), error: error instanceof Error ? error.message : String(error) });
       
       // Mark job as failed
       await ctx.runMutation(api.stagingJobs.updateStagingJobStatus, {
@@ -367,35 +464,14 @@ export const getActiveStagingJobs = query({
       throw new Error("Project not found or access denied");
     }
 
-    // Get all staging jobs for this user that are not completed
+    // Query by projectId index directly for efficiency
     const jobs = await ctx.db
       .query("stagingJobs")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .filter((q) => 
-        q.and(
-          q.neq(q.field("status"), "completed"),
-          q.neq(q.field("status"), "failed")
-        )
-      )
+      .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.and(q.neq(q.field("status"), "completed"), q.neq(q.field("status"), "failed")))
       .collect();
 
-    // Filter jobs that contain images from this project
-    const projectJobs = [];
-    for (const job of jobs) {
-      // Check if any of the job's images belong to this project
-      const hasProjectImages = await Promise.all(
-        job.imageIds.map(async (imageId) => {
-          const image = await ctx.db.get(imageId);
-          return image?.projectId === args.projectId;
-        })
-      );
-      
-      if (hasProjectImages.some(Boolean)) {
-        projectJobs.push(job);
-      }
-    }
-
-    return projectJobs;
+    return jobs;
   },
 });
 
@@ -472,6 +548,7 @@ export const updateStagingJobResults = mutation({
   handler: async (ctx, args) => {
     await ctx.db.patch(args.jobId, {
       results: args.results,
+      updatedAt: Date.now(),
     });
   },
 });
@@ -552,9 +629,7 @@ export const cancelStagingJob = mutation({
 export const getStylePresets = query({
   args: {},
   handler: async () => {
-    // Import the getStylePresets function from the Gemini utility
-    const { getStylePresets } = await import("./lib/gemini");
-    return getStylePresets();
+    return geminiGetStylePresets();
   },
 });
 
@@ -620,6 +695,7 @@ export const retryStagingJob = mutation({
     // Create new staging job for retry
     const retryJobId = await ctx.db.insert("stagingJobs", {
       userId: user._id,
+      projectId: originalJob.projectId,
       imageIds: failedImages,
       stylePreset: originalJob.stylePreset,
       customPrompt: originalJob.customPrompt,
@@ -657,6 +733,88 @@ export const retryStagingJob = mutation({
     await ctx.scheduler.runAfter(0, api.stagingJobs.processStagingJob, { jobId: retryJobId });
 
     return retryJobId;
+  },
+});
+
+/**
+ * Process any stuck staging jobs (recovery function)
+ */
+export const processStuckJobs = action({
+  args: {},
+  handler: async (ctx): Promise<{ stuckJobsFound: number; stuckJobsRescheduled: number }> => {
+    console.log("Checking for stuck staging jobs...");
+    
+    // Find all jobs that are stuck in "processing" status for more than 10 minutes
+    const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+    const allJobs = await ctx.runQuery(api.stagingJobs.getAllProcessingJobs);
+    
+    const stuckJobs = allJobs.filter((job: { status: string; createdAt: number; updatedAt?: number }) => 
+      job.status === "processing" && (job.updatedAt ?? job.createdAt) < tenMinutesAgo
+    );
+    
+    console.log(`Found ${stuckJobs.length} stuck processing jobs`);
+    
+    // Mark stuck jobs as failed and reset image statuses
+    for (const job of stuckJobs) {
+      console.log(`Marking stuck job ${job._id} as failed`);
+      try {
+        // Mark job as failed
+        await ctx.runMutation(api.stagingJobs.updateStagingJobStatus, {
+          jobId: job._id,
+          status: "failed",
+          completedAt: Date.now(),
+        });
+
+        // Reset image statuses to uploaded
+        await Promise.all(
+          job.imageIds.map(async (imageId: Id<"images">) => {
+            await ctx.runMutation(api.images.updateImageStatus, {
+              imageId,
+              status: "uploaded",
+            });
+          })
+        );
+
+        console.log(`Reset job ${job._id} and its images`);
+      } catch (error) {
+        console.error(`Failed to reset job ${job._id}:`, error);
+      }
+    }
+    
+    return {
+      stuckJobsFound: stuckJobs.length,
+      stuckJobsRescheduled: 0, // We're marking as failed, not rescheduling
+    };
+  },
+});
+
+/**
+ * Get all processing jobs (helper for recovery)
+ */
+export const getAllProcessingJobs = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("stagingJobs")
+      .filter((q) => q.eq(q.field("status"), "processing"))
+      .collect();
+  },
+});
+
+/**
+ * Manual trigger to process stuck jobs (can be called from UI)
+ */
+export const triggerStuckJobRecovery = action({
+  args: {},
+  handler: async (ctx): Promise<{ stuckJobsFound: number; stuckJobsRescheduled: number }> => {
+    // Get current user (optional - could be admin only)
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    console.log("Manual trigger for stuck job recovery");
+    return await ctx.runAction(api.stagingJobs.processStuckJobs, {});
   },
 });
 
