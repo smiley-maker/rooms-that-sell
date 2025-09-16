@@ -8,16 +8,11 @@ import { Id } from "../../../convex/_generated/dataModel";
 import type { ImageVersion } from "@/types/convex";
 
 import { cn } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Check, Star, Lock, Download, Loader2 } from "lucide-react";
+import { Check, Star, Download, Loader2, X } from "lucide-react";
 
 interface VersionsGalleryModalProps {
   isOpen: boolean;
@@ -30,25 +25,29 @@ interface VersionsGalleryModalProps {
 type VersionCardProps = {
   version: ImageVersion;
   isActive: boolean;
-  isOriginal: boolean;
   onActivate: () => Promise<void>;
   onTogglePin: () => Promise<void>;
   onDownload: () => Promise<void>;
   isActivating: boolean;
   isDownloading: boolean;
+  imageUrl?: string | null;
 };
 
 function VersionCard({
   version,
   isActive,
-  isOriginal,
   onActivate,
   onTogglePin,
   onDownload,
   isActivating,
   isDownloading,
+  imageUrl,
 }: VersionCardProps) {
   const [thumbError, setThumbError] = useState(false);
+
+  useEffect(() => {
+    setThumbError(false);
+  }, [imageUrl, version.stagedUrl]);
 
   const styleName = version.stylePreset || "Unknown";
   const createdAtLabel = useMemo(() => {
@@ -58,35 +57,37 @@ function VersionCard({
       day: "numeric",
       hour: "numeric",
       minute: "2-digit",
+      hour12: true,
     });
   }, [version.createdAt]);
-
-  const badges = [
-    isOriginal && {
-      label: "Original",
-      tone: "bg-white/90 text-gray-700",
-      icon: Lock,
-    },
-    isActive && {
-      label: "Active",
-      tone: "bg-emerald-100 text-emerald-700",
-      icon: Check,
-    },
-  ].filter(Boolean) as Array<{ label: string; tone: string; icon: typeof Check }>;
 
   const decorBadge = (version.customPrompt?.toLowerCase().includes("decor") || version.customPrompt?.toLowerCase().includes("décor"))
     ? "decor on"
     : "decor off";
 
+  // Extract room type from context or default to "room"
+  const roomType = "living room"; // This would come from your image context
+
   return (
     <div
       className={cn(
-        "group flex h-full flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_20px_32px_rgba(15,23,42,0.08)] ring-1 ring-black/5 transition duration-200 hover:-translate-y-1 hover:shadow-[0_28px_48px_rgba(15,23,42,0.12)]",
-        isActive && "ring-indigo-200 shadow-[0_28px_52px_rgba(79,70,229,0.16)]"
+        "group relative flex flex-col overflow-hidden rounded-xl bg-white shadow-sm border border-gray-200 transition-all duration-200 hover:shadow-md hover:border-gray-300 w-full min-w-0",
+        isActive && "border-blue-500 ring-1 ring-blue-200 shadow-md"
       )}
+      style={{ minHeight: '320px' }}
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
-        {version.stagedUrl && !thumbError ? (
+      {/* Image Container */}
+      <div className="relative w-full bg-gray-100 flex-shrink-0" style={{ aspectRatio: '4/3' }}>
+        {imageUrl && !thumbError ? (
+          <Image
+            src={imageUrl}
+            alt={`${styleName} preview`}
+            fill
+            className="object-cover"
+            unoptimized
+            onError={() => setThumbError(true)}
+          />
+        ) : version.stagedUrl && !thumbError ? (
           <Image
             src={version.stagedUrl}
             alt={`${styleName} preview`}
@@ -96,110 +97,108 @@ function VersionCard({
             onError={() => setThumbError(true)}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-xs uppercase tracking-wide text-gray-500">
-            Preview
+          <div className="flex h-full w-full items-center justify-center bg-gray-100 text-sm text-gray-400">
+            Preview unavailable
           </div>
         )}
 
-        <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-          {badges.map((badge) => (
-            <span
-              key={badge.label}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium shadow-sm backdrop-blur",
-                badge.tone
-              )}
-            >
-              <badge.icon className="h-3.5 w-3.5" />
-              {badge.label}
-            </span>
-          ))}
-        </div>
-
+        {/* Pin Button */}
         <Button
           variant="ghost"
           size="sm"
           className={cn(
-            "absolute top-4 right-4 h-8 gap-2 rounded-full border border-slate-200 bg-white/80 px-3 text-xs font-medium text-slate-600 shadow-sm backdrop-blur transition hover:bg-white",
-            version.pinned && "border-amber-200 bg-amber-50 text-amber-600"
+            "absolute top-3 right-3 h-8 w-8 rounded-full bg-white/90 p-0 shadow-sm backdrop-blur-sm hover:bg-white",
+            version.pinned && "bg-amber-50 text-amber-600 hover:bg-amber-100"
           )}
           onClick={onTogglePin}
         >
           <Star
             className={cn(
-              "h-3.5 w-3.5",
-              version.pinned ? "fill-current" : "stroke-[1.75]"
+              "h-4 w-4",
+              version.pinned ? "fill-current" : "stroke-2"
             )}
           />
-          {version.pinned ? "Pinned" : "Pin"}
         </Button>
+
+        {/* Active Badge */}
+        {isActive && (
+          <div className="absolute top-3 left-3">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-2.5 py-1 text-xs font-medium text-white shadow-sm">
+              <Check className="h-3 w-3" />
+              Active
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-base font-semibold text-slate-900 capitalize">{styleName}</div>
-            <div className="text-xs text-slate-500">{createdAtLabel}</div>
-          </div>
-
-          {isActive && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
-              <Check className="h-3.5 w-3.5" /> Active
-            </span>
-          )}
+      {/* Content */}
+      <div className="flex flex-1 flex-col p-4">
+        {/* Header */}
+        <div className="mb-3">
+          <h3 className="text-base font-semibold text-gray-900 mb-1">{roomType}</h3>
+          <p className="text-sm text-gray-600">{createdAtLabel}</p>
         </div>
 
-        <div className="flex flex-wrap gap-2 text-xs">
-          <Badge variant="secondary" className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-slate-600">
+        {/* Tags */}
+        <div className="flex flex-wrap gap-2 mb-3">
+          <Badge variant="secondary" className="text-xs font-medium bg-gray-100 text-gray-700 border-0">
             {styleName.toLowerCase()}
           </Badge>
-          <Badge variant="secondary" className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-slate-600">
+          <Badge variant="secondary" className="text-xs font-medium bg-gray-100 text-gray-700 border-0">
             {decorBadge}
           </Badge>
         </div>
 
+        {/* Custom Prompt */}
         {version.customPrompt && (
-          <p className="line-clamp-2 text-sm italic text-slate-600">“{version.customPrompt}”</p>
+          <div className="mb-4 flex-1">
+            <p className="text-sm text-gray-600 italic line-clamp-2">
+              &ldquo;{version.customPrompt}&rdquo;
+            </p>
+          </div>
         )}
 
-        <div className="mt-auto flex items-center justify-between gap-3">
-          <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400">{version.aiModel}</div>
-          <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 w-9 rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
-                  onClick={onDownload}
-                  disabled={isDownloading}
-                >
-                  {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Download</TooltipContent>
-            </Tooltip>
-            <Button
-              onClick={onActivate}
-              disabled={isActive || isActivating}
-              variant="default"
-              size="sm"
-              className={cn(
-                "h-9 rounded-full px-5 text-sm font-semibold shadow-sm transition",
-                isActive
-                  ? "cursor-default bg-slate-200 text-slate-600 hover:bg-slate-200"
-                  : "bg-slate-900 text-white hover:bg-slate-800"
-              )}
-            >
-              {isActivating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : isActive ? (
-                "Active"
-              ) : (
-                "Use Version"
-              )}
-            </Button>
-          </div>
+        {/* Actions */}
+        <div className="flex items-center justify-between mt-auto pt-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 w-9 rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm hover:bg-gray-50"
+                onClick={onDownload}
+                disabled={isDownloading}
+              >
+                {isDownloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Download</TooltipContent>
+          </Tooltip>
+
+          <Button
+            onClick={onActivate}
+            disabled={isActive || isActivating}
+            variant={isActive ? "secondary" : "default"}
+            size="sm"
+            className={cn(
+              "rounded-full px-4 font-medium",
+              isActive
+                ? "bg-gray-100 text-gray-600 cursor-default hover:bg-gray-100"
+                : "bg-gray-900 text-white hover:bg-gray-800"
+            )}
+          >
+            {isActivating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : isActive ? (
+              "Active"
+            ) : (
+              "Use Version"
+            )}
+          </Button>
         </div>
       </div>
     </div>
@@ -216,11 +215,16 @@ export function VersionsGalleryModal({
   const versions = useQuery(api.images.listImageVersions, { imageId });
   const setCurrentVersion = useMutation(api.images.setCurrentImageVersion);
   const setPinned = useMutation(api.images.setImageVersionPinned);
-  const getImageDownloadUrl = useAction(api.images.getImageDownloadUrl);
+  const getVersionDownloadUrl = useAction(api.images.getImageVersionDownloadUrl);
 
   const [activatingId, setActivatingId] = useState<Id<"imageVersions"> | null>(null);
   const [downloadingId, setDownloadingId] = useState<Id<"imageVersions"> | null>(null);
   const [localCurrentId, setLocalCurrentId] = useState(currentVersionId);
+  const [versionUrls, setVersionUrls] = useState<Record<string, string | null>>({});
+
+  useEffect(() => {
+    setVersionUrls({});
+  }, [imageId]);
 
   useEffect(() => {
     setLocalCurrentId(currentVersionId);
@@ -242,6 +246,46 @@ export function VersionsGalleryModal({
       });
   }, [versions]);
 
+  useEffect(() => {
+    if (!sorted.length) return;
+    const missing = sorted.filter((version) => {
+      const id = version._id as string;
+      return !(id in versionUrls);
+    });
+    if (!missing.length) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const entries = await Promise.all(
+        missing.map(async (version) => {
+          const id = version._id as string;
+          try {
+            const url = await getVersionDownloadUrl({ versionId: version._id });
+            return [id, url] as const;
+          } catch (error) {
+            console.error("Failed to load version preview", version._id, error);
+            return [id, version.stagedUrl ?? null] as const;
+          }
+        })
+      );
+
+      if (cancelled) return;
+
+      setVersionUrls((prev) => {
+        const next = { ...prev };
+        for (const [id, url] of entries) {
+          next[id] = url;
+        }
+        return next;
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sorted, versionUrls, getVersionDownloadUrl]);
+
   if (!sorted.length) {
     return null;
   }
@@ -262,8 +306,15 @@ export function VersionsGalleryModal({
     await setPinned({ versionId: version._id, pinned: !version.pinned });
   };
 
-  const downloadVersion = async (filename: string) => {
-    const downloadUrl = await getImageDownloadUrl({ imageId, isStaged: true });
+  const downloadVersion = async (version: ImageVersion, filename: string) => {
+    const versionId = version._id as string;
+    let downloadUrl = versionUrls[versionId] ?? null;
+
+    if (!downloadUrl) {
+      downloadUrl = await getVersionDownloadUrl({ versionId: version._id });
+      setVersionUrls((prev) => ({ ...prev, [versionId]: downloadUrl }));
+    }
+
     const link = document.createElement("a");
     link.href = downloadUrl;
     link.download = filename;
@@ -280,33 +331,46 @@ export function VersionsGalleryModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full max-w-6xl max-h-[90vh] overflow-hidden rounded-[32px] border border-black/5 bg-[#f4f2ee] px-0 pb-0 shadow-[0_32px_80px_rgba(15,23,42,0.18)]">
-        <DialogHeader className="border-b border-black/5 px-10 pb-4 pt-8">
-          <DialogTitle className="text-xl font-semibold text-slate-900">
-            All Versions ({sorted.length})
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="!max-w-[95vw] !w-[95vw] !max-h-[90vh] !h-[90vh] p-0 gap-0 bg-white overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white shrink-0">
+          <DialogTitle className="text-xl font-semibold text-gray-900">All Versions</DialogTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 rounded-full p-0 hover:bg-gray-100"
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
 
-        <div className="overflow-y-auto px-10 pb-10 pt-8">
-          <div className="grid gap-8 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div 
+            className="grid gap-4 min-h-0"
+            style={{
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))'
+            }}
+          >
             {sorted.map((version) => {
-              const isOriginal = version.createdAt === sorted[0].createdAt;
+              const versionId = version._id as string;
               const isActive = version._id === localCurrentId;
               return (
                 <VersionCard
                   key={version._id}
                   version={version}
-                  isOriginal={isOriginal}
                   isActive={isActive}
                   isActivating={activatingId === version._id}
                   isDownloading={downloadingId === version._id}
+                  imageUrl={versionUrls[versionId] ?? null}
                   onActivate={() => handleActivate(version._id)}
                   onTogglePin={async () => handleTogglePin(version)}
                   onDownload={async () => {
                     const filename = filenameFor(version);
                     setDownloadingId(version._id);
                     try {
-                      await downloadVersion(filename);
+                      await downloadVersion(version, filename);
                     } finally {
                       setDownloadingId(null);
                     }
@@ -315,10 +379,6 @@ export function VersionsGalleryModal({
               );
             })}
           </div>
-        </div>
-
-        <div className="border-t border-black/5 bg-white px-10 py-4 text-sm text-slate-500">
-          {sorted.length} version{sorted.length !== 1 ? "s" : ""} available
         </div>
       </DialogContent>
     </Dialog>

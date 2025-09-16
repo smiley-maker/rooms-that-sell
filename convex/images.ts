@@ -508,6 +508,95 @@ export const getImageById = query({
 });
 
 /**
+ * Get a single image version by ID (helper query)
+ */
+export const getImageVersionById = query({
+  args: {
+    versionId: v.id("imageVersions"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.versionId);
+  },
+});
+
+/**
+ * Generate a downloadable URL for a specific image version
+ */
+export const getImageVersionDownloadUrl = action({
+  args: {
+    versionId: v.id("imageVersions"),
+  },
+  handler: async (ctx, args): Promise<string> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.runQuery(api.users.getCurrentUser, {});
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const version = await ctx.runQuery(api.images.getImageVersionById, {
+      versionId: args.versionId,
+    });
+    if (!version) {
+      throw new Error("Image version not found");
+    }
+
+    const image = await ctx.runQuery(api.images.getImageById, {
+      imageId: version.imageId,
+    });
+    if (!image || image.userId !== user._id) {
+      throw new Error("Access denied");
+    }
+
+    if (version.stagedUrl && version.stagedUrl.startsWith("data:")) {
+      return version.stagedUrl;
+    }
+
+    let bucket = process.env.R2_BUCKET_STAGED;
+    let key = version.stagedKey;
+
+    if (!key && version.stagedUrl && version.stagedUrl.includes("r2.cloudflarestorage.com")) {
+      const urlParts = version.stagedUrl.split("/");
+      if (urlParts.length >= 5) {
+        bucket = urlParts[3];
+        key = urlParts.slice(4).join("/");
+      }
+    }
+
+    if (!bucket || !key) {
+      throw new Error("Missing storage metadata for image version");
+    }
+
+    try {
+      const { S3Client, GetObjectCommand } = await import("@aws-sdk/client-s3");
+      const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
+
+      const r2Client = new S3Client({
+        region: "auto",
+        endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+        credentials: {
+          accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+          secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+        },
+      });
+
+      const command = new GetObjectCommand({
+        Bucket: bucket,
+        Key: key,
+      });
+
+      return await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+    } catch (error) {
+      console.error("Failed to generate version download URL:", error);
+      throw new Error("Failed to generate download URL");
+    }
+  },
+});
+
+/**
  * Update image room type
  */
 export const updateImageRoomType = mutation({
