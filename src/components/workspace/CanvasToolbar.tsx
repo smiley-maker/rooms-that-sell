@@ -13,6 +13,7 @@ import { Expand, Sparkles, Check, Download, Shrink, Heart } from "lucide-react";
 import { Id } from "../../../convex/_generated/dataModel";
 import { VersionsDropdown } from "./VersionsDropdown";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type CanvasToolbarProps = {
   isOriginalImage: boolean;
@@ -70,8 +71,10 @@ export function CanvasToolbar({
         versionId: currentVersionId,
         pinned: !isPinned,
       });
+      toast.success(!isPinned ? "Version pinned" : "Version unpinned");
     } catch (error) {
       console.error("Failed to toggle pin:", error);
+      toast.error("Couldn't update the pin status. Please try again.");
     } finally {
       setIsPinning(false);
     }

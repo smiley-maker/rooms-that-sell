@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Check, Star, Download, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface VersionsGalleryModalProps {
   isOpen: boolean;
@@ -221,9 +223,15 @@ export function VersionsGalleryModal({
   const [downloadingId, setDownloadingId] = useState<Id<"imageVersions"> | null>(null);
   const [localCurrentId, setLocalCurrentId] = useState(currentVersionId);
   const [versionUrls, setVersionUrls] = useState<Record<string, string | null>>({});
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const previewErrorShown = useRef(false);
+
+  const isLoading = versions === undefined;
 
   useEffect(() => {
     setVersionUrls({});
+    setLoadError(null);
+    previewErrorShown.current = false;
   }, [imageId]);
 
   useEffect(() => {
@@ -265,6 +273,11 @@ export function VersionsGalleryModal({
             return [id, url] as const;
           } catch (error) {
             console.error("Failed to load version preview", version._id, error);
+            if (!previewErrorShown.current) {
+              previewErrorShown.current = true;
+              toast.error("Couldn't load one or more version previews. Showing staged images instead.");
+            }
+            setLoadError("Some previews failed to load");
             return [id, version.stagedUrl ?? null] as const;
           }
         })
@@ -286,9 +299,7 @@ export function VersionsGalleryModal({
     };
   }, [sorted, versionUrls, getVersionDownloadUrl]);
 
-  if (!sorted.length) {
-    return null;
-  }
+  const showEmptyState = !isLoading && sorted.length === 0;
 
   const handleActivate = async (versionId: Id<"imageVersions">) => {
     if (activatingId) return;
@@ -297,13 +308,23 @@ export function VersionsGalleryModal({
       await setCurrentVersion({ imageId, versionId });
       setLocalCurrentId(versionId);
       onVersionChange?.(versionId);
+      toast.success("Version set as active");
+    } catch (error) {
+      console.error("Failed to activate version", error);
+      toast.error("Couldn't set that version active. Please try again.");
     } finally {
       setActivatingId(null);
     }
   };
 
   const handleTogglePin = async (version: ImageVersion) => {
-    await setPinned({ versionId: version._id, pinned: !version.pinned });
+    try {
+      await setPinned({ versionId: version._id, pinned: !version.pinned });
+      toast.success(`${version.pinned ? "Version unpinned" : "Version pinned"}`);
+    } catch (error) {
+      console.error("Failed to toggle pin", error);
+      toast.error("Couldn't update the pin status. Please try again.");
+    }
   };
 
   const downloadVersion = async (version: ImageVersion, filename: string) => {
@@ -311,8 +332,19 @@ export function VersionsGalleryModal({
     let downloadUrl = versionUrls[versionId] ?? null;
 
     if (!downloadUrl) {
-      downloadUrl = await getVersionDownloadUrl({ versionId: version._id });
-      setVersionUrls((prev) => ({ ...prev, [versionId]: downloadUrl }));
+      try {
+        downloadUrl = await getVersionDownloadUrl({ versionId: version._id });
+        setVersionUrls((prev) => ({ ...prev, [versionId]: downloadUrl }));
+      } catch (error) {
+        console.error("Failed to prepare download", error);
+        toast.error("Couldn't prepare the download link for that version.");
+        throw error;
+      }
+    }
+
+    if (!downloadUrl) {
+      toast.error("This version doesn't have a downloadable file yet.");
+      return;
     }
 
     const link = document.createElement("a");
@@ -347,6 +379,30 @@ export function VersionsGalleryModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
+          {loadError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTitle>Something went wrong</AlertTitle>
+              <AlertDescription>
+                {loadError}. You can retry by closing and reopening the gallery.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {isLoading ? (
+            <div className="flex h-full items-center justify-center text-gray-500">
+              <div className="flex items-center gap-2 text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading versions…
+              </div>
+            </div>
+          ) : showEmptyState ? (
+            <div className="flex h-full flex-col items-center justify-center text-center text-gray-500 gap-2">
+              <p className="text-sm font-medium">No versions yet</p>
+              <p className="text-sm text-gray-400">
+                As you stage and edit this image, new versions will appear here.
+              </p>
+            </div>
+          ) : (
           <div 
             className="grid gap-4 min-h-0"
             style={{
@@ -371,6 +427,9 @@ export function VersionsGalleryModal({
                     setDownloadingId(version._id);
                     try {
                       await downloadVersion(version, filename);
+                      toast.success("Download started");
+                    } catch (error) {
+                      console.error("Download failed", error);
                     } finally {
                       setDownloadingId(null);
                     }
@@ -379,6 +438,7 @@ export function VersionsGalleryModal({
               );
             })}
           </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

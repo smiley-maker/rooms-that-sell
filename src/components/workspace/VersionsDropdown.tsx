@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, Star, Check, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface VersionsDropdownProps {
   imageId: Id<"images">;
@@ -36,22 +37,34 @@ export function VersionsDropdown({
   // Fetch versions for this image
   const versions = useQuery(api.images.listImageVersions, { imageId });
   const setCurrentVersion = useMutation(api.images.setCurrentImageVersion);
+  const isLoading = versions === undefined;
 
   // Sort versions by creation date (newest first) and take last 5
-  const recentVersions = versions
-    ?.slice()
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .slice(0, 5) || [];
+  const recentVersions = useMemo(() => {
+    if (!Array.isArray(versions)) return [];
+    return versions
+      .slice()
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 5);
+  }, [versions]);
 
   const currentVersion = versions?.find(v => v._id === currentVersionId);
+  const oldestVersionId = useMemo(() => {
+    if (!Array.isArray(versions) || versions.length === 0) return undefined;
+    return versions
+      .slice()
+      .sort((a, b) => a.createdAt - b.createdAt)[0]._id;
+  }, [versions]);
 
   const handleVersionSelect = async (versionId: Id<"imageVersions">) => {
     try {
       await setCurrentVersion({ imageId, versionId });
       onVersionChange?.(versionId);
       setIsOpen(false);
+      toast.success("Version set as active");
     } catch (error) {
       console.error("Failed to set current version:", error);
+      toast.error("Couldn't switch versions. Please try again.");
     }
   };
 
@@ -92,14 +105,21 @@ export function VersionsDropdown({
     }
     
     // Check if this is the original version (first created)
-    const isOriginal = versions?.length && 
-      versions.sort((a, b) => a.createdAt - b.createdAt)[0]._id === version._id;
+    const isOriginal = oldestVersionId === version._id;
     if (isOriginal) {
       badges.push({ icon: Lock, label: "Original", color: "text-gray-600" });
     }
-    
+
     return badges;
   };
+
+  if (isLoading) {
+    return (
+      <span className="px-3 py-1.5 text-sm text-gray-500 font-medium">
+        Loading versions…
+      </span>
+    );
+  }
 
   if (!versions || versions.length === 0) {
     return (
