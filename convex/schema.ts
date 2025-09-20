@@ -187,6 +187,13 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_projectId", ["projectId"])
     .index("by_status", ["status"]),
-});
 
+  toolUsage: defineTable({
+    toolSlug: v.string(),
+    ipHash: v.string(),
+    count: v.number(),
+    windowStartedAt: v.number(),
+    lastUsedAt: v.number(),
+  }).index("by_tool_ip", ["toolSlug", "ipHash"]),
+});
 

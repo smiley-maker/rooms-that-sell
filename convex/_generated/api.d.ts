@@ -13,6 +13,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as beforeAfterVideos from "../beforeAfterVideos.js";
 import type * as creditTransactions from "../creditTransactions.js";
 import type * as crons from "../crons.js";
 import type * as health from "../health.js";
@@ -30,6 +31,7 @@ import type * as mlsCompliance from "../mlsCompliance.js";
 import type * as projects from "../projects.js";
 import type * as stagingJobs from "../stagingJobs.js";
 import type * as stripe from "../stripe.js";
+import type * as toolUsage from "../toolUsage.js";
 import type * as users from "../users.js";
 import type * as waitlist from "../waitlist.js";
 
@@ -42,6 +44,7 @@ import type * as waitlist from "../waitlist.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  beforeAfterVideos: typeof beforeAfterVideos;
   creditTransactions: typeof creditTransactions;
   crons: typeof crons;
   health: typeof health;
@@ -59,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   stagingJobs: typeof stagingJobs;
   stripe: typeof stripe;
+  toolUsage: typeof toolUsage;
   users: typeof users;
   waitlist: typeof waitlist;
 }>;
