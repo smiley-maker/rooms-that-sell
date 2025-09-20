@@ -25,6 +25,7 @@ function getClient() {
       accessKeyId: process.env.R2_ACCESS_KEY_ID!,
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
     },
+    forcePathStyle: true,
   });
 }
 
@@ -82,5 +83,4 @@ export async function putObject(params: { bucket?: string; key: string; body: Bu
   await withRetry(() => client.send(cmd));
   return `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${bucket}/${params.key}`;
 }
-
 

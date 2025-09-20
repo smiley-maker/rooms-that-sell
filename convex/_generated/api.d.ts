@@ -13,6 +13,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as beforeAfterVideoSessions from "../beforeAfterVideoSessions.js";
 import type * as beforeAfterVideos from "../beforeAfterVideos.js";
 import type * as creditTransactions from "../creditTransactions.js";
 import type * as crons from "../crons.js";
@@ -44,6 +45,7 @@ import type * as waitlist from "../waitlist.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  beforeAfterVideoSessions: typeof beforeAfterVideoSessions;
   beforeAfterVideos: typeof beforeAfterVideos;
   creditTransactions: typeof creditTransactions;
   crons: typeof crons;
