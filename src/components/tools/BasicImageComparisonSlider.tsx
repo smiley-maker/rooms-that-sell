@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -76,11 +78,38 @@ export function BasicImageComparisonSlider({
     };
   }, []);
 
+  const shouldUseNativeImage = (src: string) => src.startsWith("blob:") || src.startsWith("data:");
+
+  const renderImage = (src: string, alt: string) => {
+    if (shouldUseNativeImage(src)) {
+      return (
+        <img
+          src={src}
+          alt={alt}
+          className="absolute inset-0 h-full w-full select-none object-cover pointer-events-none"
+          draggable={false}
+        />
+      );
+    }
+
+    return (
+      <Image
+        key={src}
+        src={src}
+        alt={alt}
+        fill
+        unoptimized
+        sizes="(min-width: 768px) 60vw, 100vw"
+        className="pointer-events-none select-none object-cover"
+      />
+    );
+  };
+
   return (
     <div className={cn("w-full", className)}>
       <div
         ref={containerRef}
-        className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-neutral-900 select-none"
+        className="relative aspect-video w-full overflow-hidden rounded-2xl border border-black/10 bg-white select-none shadow-lg"
         onMouseDown={(event) => {
           setIsDragging(true);
           updatePosition(event.clientX);
@@ -109,36 +138,30 @@ export function BasicImageComparisonSlider({
         }}
         aria-label="Before and after comparison"
       >
-        <Image
-          src={beforeImage}
-          alt={beforeLabel}
-          fill
-          unoptimized
-          className="pointer-events-none select-none object-cover"
-        />
+        <div className="absolute inset-0">
+          <div className="relative h-full w-full">
+            {renderImage(afterImage, afterLabel)}
+          </div>
+        </div>
         <div
           className="absolute inset-0 overflow-hidden"
           style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
         >
-          <Image
-            src={afterImage}
-            alt={afterLabel}
-            fill
-            unoptimized
-            className="pointer-events-none select-none object-cover"
-          />
+          <div className="relative h-full w-full">
+            {renderImage(beforeImage, beforeLabel)}
+          </div>
         </div>
 
         <div className="pointer-events-none absolute inset-x-0 top-4 flex justify-between px-6 text-sm font-semibold uppercase tracking-[0.2em] text-white drop-shadow">
-          <span className="rounded-full bg-neutral-900/70 px-3 py-1 backdrop-blur">{beforeLabel}</span>
-          <span className="rounded-full bg-neutral-900/70 px-3 py-1 backdrop-blur">{afterLabel}</span>
+          <span className="rounded-full bg-[#4A6B85]/90 px-3 py-1 backdrop-blur">{beforeLabel}</span>
+          <span className="rounded-full bg-[#4A6B85]/90 px-3 py-1 backdrop-blur">{afterLabel}</span>
         </div>
 
         <div
           className="absolute inset-y-0 w-0.5 bg-white shadow-xl"
           style={{ left: `${position}%` }}
         >
-          <div className="absolute left-1/2 top-1/2 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/70 bg-white/95 text-neutral-900 shadow-lg">
+          <div className="absolute left-1/2 top-1/2 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/10 bg-white text-neutral-900 shadow-lg">
             <div className="flex items-center gap-1 text-xs font-semibold uppercase">
               <span>⇤</span>
               <span>⇥</span>
@@ -167,13 +190,13 @@ export function BasicImageComparisonSlider({
             setIsMobileSliderActive(false);
             setLastInteractionTime(Date.now());
           }}
-          className="h-2 w-full cursor-pointer appearance-none rounded-full bg-white/20"
+          className="h-2 w-full cursor-pointer appearance-none rounded-full bg-[#d4d9de]"
           style={{
-            background: `linear-gradient(to right, rgba(59,130,246,1) 0%, rgba(59,130,246,1) ${position}%, rgba(255,255,255,0.2) ${position}%, rgba(255,255,255,0.2) 100%)`,
+            background: `linear-gradient(to right, #4A6B85 0%, #4A6B85 ${position}%, #d4d9de ${position}%, #d4d9de 100%)`,
           }}
           aria-label="Compare before and after"
         />
-        <div className="mt-1 flex justify-between text-xs uppercase tracking-wide text-white/60">
+        <div className="mt-1 flex justify-between text-xs uppercase tracking-wide text-neutral-600">
           <span>{beforeLabel}</span>
           <span>{afterLabel}</span>
         </div>

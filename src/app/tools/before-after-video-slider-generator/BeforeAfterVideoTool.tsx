@@ -2,45 +2,41 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAction } from "convex/react";
-import { Loader2, Upload, RefreshCcw, Download } from "lucide-react";
+import { Loader2, Upload, RefreshCcw } from "lucide-react";
 import { api } from "../../../../convex/_generated/api";
-import { BasicImageComparisonSlider } from "@/components/tools/BasicImageComparisonSlider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { NotificationService } from "@/lib/notifications";
-import { cn, formatDuration } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
-const TOOL_SLUG = "before-after-video-slider-generator";
 
-interface UploadedAsset {
-  key: string;
-  bucket: string;
-}
-
-interface UsageInfo {
-  limit: number;
-  remaining: number;
-  windowEndsAt: number;
+interface UploadState {
+  key: string | null;
+  isUploading: boolean;
 }
 
 export function BeforeAfterVideoTool() {
+  const [email, setEmail] = useState("");
+  const [emailSubmitted, setEmailSubmitted] = useState(false);
+  const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
+
   const [beforeFile, setBeforeFile] = useState<File | null>(null);
   const [afterFile, setAfterFile] = useState<File | null>(null);
   const [beforePreview, setBeforePreview] = useState<string | null>(null);
   const [afterPreview, setAfterPreview] = useState<string | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoExpiresAt, setVideoExpiresAt] = useState<number | null>(null);
-  const [usageInfo, setUsageInfo] = useState<UsageInfo | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState<"idle" | "uploading" | "processing" | "completed">("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [isResetting, setIsResetting] = useState(false);
 
-  const generateUploadUrl = useAction(api.beforeAfterVideos.generateUploadUrl);
+  const [beforeUpload, setBeforeUpload] = useState<UploadState>({ key: null, isUploading: false });
+  const [afterUpload, setAfterUpload] = useState<UploadState>({ key: null, isUploading: false });
+
+  const [isRequestingVideo, setIsRequestingVideo] = useState(false);
+  const [jobAccepted, setJobAccepted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const startVideoGeneration = useAction(api.beforeAfterVideos.startVideoGeneration);
+  const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL;
 
   useEffect(() => {
     return () => {
@@ -49,209 +45,240 @@ export function BeforeAfterVideoTool() {
     };
   }, [beforePreview, afterPreview]);
 
-  const humanUsageStatus = useMemo(() => {
-    if (!usageInfo) return null;
-    const { remaining, limit, windowEndsAt } = usageInfo;
-    const used = limit - remaining;
-    const windowEndsIn = Math.max(0, windowEndsAt - Date.now());
-    return {
-      used,
-      limit,
-      remaining,
-      windowText: formatDuration(windowEndsIn),
-    };
-  }, [usageInfo]);
-
-  const videoExpiryText = useMemo(() => {
-    if (!videoExpiresAt) return "24 hours";
-    const millisecondsRemaining = Math.max(0, videoExpiresAt - Date.now());
-    return formatDuration(millisecondsRemaining);
-  }, [videoExpiresAt]);
-
-  const validateFile = useCallback((file: File | null, label: string) => {
-    if (!file) {
-      setError(`${label} image is missing.`);
-      return false;
-    }
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      setError(`${label} image must be a JPEG, PNG, or WebP file.`);
-      return false;
-    }
-    if (file.size > MAX_FILE_SIZE) {
-      setError(`${label} image must be smaller than ${Math.round(MAX_FILE_SIZE / (1024 * 1024))}MB.`);
-      return false;
-    }
-    return true;
-  }, []);
-
-  const handleFileSelect = useCallback((fileList: FileList | null, variant: "before" | "after") => {
-    const file = fileList?.[0];
-    if (!file) return;
-
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      setError("Please upload JPEG, PNG, or WebP images only.");
-      return;
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      setError(`Each image must be under ${Math.round(MAX_FILE_SIZE / (1024 * 1024))}MB.`);
-      return;
-    }
-
-    setError(null);
-    setVideoUrl(null);
-    setVideoExpiresAt(null);
-
-    if (variant === "before") {
-      if (beforePreview) URL.revokeObjectURL(beforePreview);
-      setBeforePreview(URL.createObjectURL(file));
-      setBeforeFile(file);
-    } else {
-      if (afterPreview) URL.revokeObjectURL(afterPreview);
-      setAfterPreview(URL.createObjectURL(file));
-      setAfterFile(file);
-    }
-  }, [afterPreview, beforePreview]);
-
-  const uploadAsset = useCallback(
-    async (file: File, variant: "before" | "after"): Promise<UploadedAsset> => {
-      const { uploadUrl, assetKey, bucket } = await generateUploadUrl({
-        filename: file.name,
-        contentType: file.type,
-        fileSize: file.size,
-        variant,
-        toolSlug: TOOL_SLUG,
-      });
-
-      const response = await fetch(uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Upload failed with status ${response.status}`);
-      }
-
-      return { key: assetKey, bucket };
-    },
-    [generateUploadUrl]
-  );
-
-  const resetInputs = useCallback(() => {
-    setIsResetting(true);
+  const resetTool = useCallback(() => {
     setBeforeFile(null);
     setAfterFile(null);
     if (beforePreview) URL.revokeObjectURL(beforePreview);
     if (afterPreview) URL.revokeObjectURL(afterPreview);
     setBeforePreview(null);
     setAfterPreview(null);
-    setVideoUrl(null);
-    setVideoExpiresAt(null);
-    setUsageInfo(null);
-    setProgress(0);
-    setStatus("idle");
+    setBeforeUpload({ key: null, isUploading: false });
+    setAfterUpload({ key: null, isUploading: false });
+    setIsRequestingVideo(false);
+    setJobAccepted(false);
     setError(null);
-    setTimeout(() => setIsResetting(false), 50);
   }, [afterPreview, beforePreview]);
 
-  const generateVideo = useCallback(async () => {
-    setError(null);
-    if (!validateFile(beforeFile, "Before")) return;
-    if (!validateFile(afterFile, "After")) return;
+  const validateFile = useCallback((file: File, label: string) => {
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      throw new Error(`${label} image must be a JPEG, PNG, or WebP file.`);
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error(`${label} image must be smaller than ${Math.round(MAX_FILE_SIZE / (1024 * 1024))}MB.`);
+    }
+  }, []);
 
-    let uploadToastId: string | number | undefined;
-    try {
-      setProgress(5);
-      setStatus("uploading");
-      uploadToastId = NotificationService.loading(
-        "Uploading images to build your slider video..."
-      );
-
-      const beforeAsset = await uploadAsset(beforeFile!, "before");
-      setProgress(30);
-      const afterAsset = await uploadAsset(afterFile!, "after");
-      setProgress(65);
-
-      if (uploadToastId !== undefined) {
-        NotificationService.dismiss(uploadToastId);
-        uploadToastId = undefined;
+  const requestUploadUrl = useCallback(
+    async (variant: "before" | "after", contentType: string) => {
+      if (!workerUrl) {
+        throw new Error("The video worker is not configured yet.");
       }
 
-      setStatus("processing");
-      NotificationService.info("Images uploaded. Rendering video...", { duration: 2500 });
-
-      const response = await fetch("/api/tools/before-after-video/generate", {
+      const bucketType = variant === "before" ? "original" : "staged";
+      const response = await fetch(`${workerUrl}/generate-upload-url`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          before: beforeAsset,
-          after: afterAsset,
-          filenames: {
-            before: beforeFile?.name,
-            after: afterFile?.name,
-          },
-          toolSlug: TOOL_SLUG,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bucketType, contentType }),
       });
-
-      setProgress(85);
 
       if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({ message: "Unable to generate video." }));
-        throw new Error(errorBody.message || "Unable to generate video.");
+        const body = await response.text();
+        throw new Error(`Upload service error (${response.status}): ${body || response.statusText}`);
       }
 
-      const data: {
-        videoUrl: string;
-        expiresAt: number;
-        usage: UsageInfo;
-      } = await response.json();
+      return (await response.json()) as { uploadUrl: string; key: string };
+    },
+    [workerUrl]
+  );
 
-      setUsageInfo(data.usage);
-      setVideoUrl(data.videoUrl);
-      setVideoExpiresAt(data.expiresAt);
-      setProgress(100);
-      setStatus("completed");
-      NotificationService.success("Video ready!", {
-        description: "Scroll down to preview or download the finished clip.",
+  const uploadFileToWorker = useCallback(
+    async (file: File, variant: "before" | "after") => {
+      validateFile(file, variant === "before" ? "Before" : "After");
+      const { uploadUrl, key } = await requestUploadUrl(variant, file.type);
+      const response = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to upload ${variant} image (status ${response.status}).`);
+      }
+
+      return key;
+    },
+    [requestUploadUrl, validateFile]
+  );
+
+  const handleEmailSubmit = useCallback(async () => {
+    if (!email.trim()) {
+      setError("Please enter your email to get the download link.");
+      return;
+    }
+    setError(null);
+    setIsSubmittingEmail(true);
+
+    try {
+      const response = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, source: "before-after-tool" }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "Unable to save your email." }));
+        throw new Error(body.error || "Unable to save your email.");
+      }
+
+      setEmailSubmitted(true);
+      NotificationService.success("You're on the list!", {
+        description: "Upload your before & after photos to generate the video.",
       });
     } catch (err) {
-      console.error(err);
-      NotificationService.error("We couldn't create the video", {
-        description: err instanceof Error ? err.message : "Unknown error",
-      });
-      setStatus("idle");
-      setProgress(0);
-      setVideoUrl(null);
-      setVideoExpiresAt(null);
-      setUsageInfo(null);
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      const message = err instanceof Error ? err.message : "Failed to save your email.";
+      setError(message);
+      NotificationService.error("Couldn't save email", { description: message });
     } finally {
-      if (uploadToastId !== undefined) {
-        NotificationService.dismiss(uploadToastId);
-      }
+      setIsSubmittingEmail(false);
     }
-  }, [afterFile, uploadAsset, beforeFile, validateFile]);
+  }, [email]);
 
-  const showSlider = beforePreview && afterPreview;
+  const handleFileSelect = useCallback(
+    async (files: FileList | null, variant: "before" | "after") => {
+      const file = files?.[0];
+      if (!file) return;
+
+      setError(null);
+
+      if (variant === "before") {
+        if (beforePreview) URL.revokeObjectURL(beforePreview);
+        setBeforePreview(URL.createObjectURL(file));
+        setBeforeFile(file);
+        setBeforeUpload((prev) => ({ ...prev, isUploading: true }));
+      } else {
+        if (afterPreview) URL.revokeObjectURL(afterPreview);
+        setAfterPreview(URL.createObjectURL(file));
+        setAfterFile(file);
+        setAfterUpload((prev) => ({ ...prev, isUploading: true }));
+      }
+
+      try {
+        const key = await uploadFileToWorker(file, variant);
+        if (variant === "before") {
+          setBeforeUpload({ key, isUploading: false });
+        } else {
+          setAfterUpload({ key, isUploading: false });
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Upload failed.";
+        setError(message);
+        NotificationService.error("Upload failed", { description: message });
+        if (variant === "before") {
+          setBeforeUpload({ key: null, isUploading: false });
+          setBeforeFile(null);
+          if (beforePreview) URL.revokeObjectURL(beforePreview);
+          setBeforePreview(null);
+        } else {
+          setAfterUpload({ key: null, isUploading: false });
+          setAfterFile(null);
+          if (afterPreview) URL.revokeObjectURL(afterPreview);
+          setAfterPreview(null);
+        }
+      }
+    },
+    [afterPreview, beforePreview, uploadFileToWorker]
+  );
+
+  const canRequestVideo = useMemo(() => {
+    return (
+      emailSubmitted &&
+      beforeUpload.key &&
+      afterUpload.key &&
+      !beforeUpload.isUploading &&
+      !afterUpload.isUploading &&
+      !jobAccepted
+    );
+  }, [afterUpload, beforeUpload, emailSubmitted, jobAccepted]);
+
+  const requestVideo = useCallback(async () => {
+    if (!beforeUpload.key || !afterUpload.key) {
+      setError("Upload both images before requesting the video.");
+      return;
+    }
+    if (!emailSubmitted) {
+      setError("Please submit your email so we can send the download link.");
+      return;
+    }
+
+    setError(null);
+    setIsRequestingVideo(true);
+
+    try {
+      await startVideoGeneration({
+        beforeKey: beforeUpload.key,
+        afterKey: afterUpload.key,
+        userEmail: email,
+        tier: "free",
+      });
+
+      setJobAccepted(true);
+      NotificationService.success("Video request received!", {
+        description: "We'll email you the download link as soon as it's ready.",
+        duration: 6000,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Video request failed.";
+      setError(message);
+      NotificationService.error("Couldn't start video", { description: message });
+    } finally {
+      setIsRequestingVideo(false);
+    }
+  }, [afterUpload.key, beforeUpload.key, email, emailSubmitted, startVideoGeneration]);
 
   return (
     <section className="space-y-10">
-      <Card className="border-white/10 bg-neutral-950 text-white shadow-xl">
+      <Card className="border border-black/5 bg-white text-black shadow-lg">
         <CardHeader>
-          <CardTitle className="text-2xl">Upload your before & after images</CardTitle>
+          <CardTitle className="text-2xl">Step 1: Join the list</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-neutral-700">
+            Drop your email and we&apos;ll send the finished video straight to your inbox. You&apos;ll also
+            get early updates from RoomsThatSell.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              disabled={emailSubmitted || isSubmittingEmail}
+              className="h-12 border-black/10 bg-white text-black placeholder:text-neutral-400"
+            />
+            <Button
+              onClick={handleEmailSubmit}
+              disabled={emailSubmitted || isSubmittingEmail}
+              className="h-12 bg-[#4A6B85] text-white hover:bg-[#3d5a70]"
+            >
+              {isSubmittingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : emailSubmitted ? "Saved" : "Continue"}
+            </Button>
+          </div>
+          {emailSubmitted && (
+            <p className="text-sm text-emerald-600">Thanks! You can upload your before &amp; after photos now.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border border-black/5 bg-white text-black shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-2xl">Step 2: Upload before & after images</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid gap-6 sm:grid-cols-2">
             <label
               className={cn(
-                "group flex h-48 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-neutral-900/60 text-center transition hover:border-primary/60 hover:bg-neutral-900",
-                isResetting && "pointer-events-none opacity-50"
+                "group flex h-48 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-[#4A6B85]/40 bg-[#F3F2F2] text-center transition hover:border-[#4A6B85]/70 hover:bg-white",
+                (!emailSubmitted || beforeUpload.isUploading) && "pointer-events-none opacity-60"
               )}
             >
               <Input
@@ -259,20 +286,24 @@ export function BeforeAfterVideoTool() {
                 accept={ACCEPTED_TYPES.join(",")}
                 className="hidden"
                 onChange={(event) => handleFileSelect(event.target.files, "before")}
-                disabled={isResetting}
+                disabled={!emailSubmitted || beforeUpload.isUploading}
               />
-              <Upload className="mb-3 h-8 w-8 text-primary" />
+              {beforeUpload.isUploading ? (
+                <Loader2 className="mb-3 h-8 w-8 animate-spin text-[#4A6B85]" />
+              ) : (
+                <Upload className="mb-3 h-8 w-8 text-[#4A6B85]" />
+              )}
               <div className="text-sm font-semibold uppercase tracking-wide">Before Photo</div>
-              <p className="mt-2 text-xs text-white/70">JPEG, PNG, or WebP up to 15MB</p>
+              <p className="mt-2 text-xs text-neutral-600">JPEG, PNG, or WebP up to 15MB</p>
               {beforeFile && (
-                <p className="mt-3 text-xs text-white/60">{beforeFile.name}</p>
+                <p className="mt-3 text-xs text-neutral-500">{beforeFile.name}</p>
               )}
             </label>
 
             <label
               className={cn(
-                "group flex h-48 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-neutral-900/60 text-center transition hover:border-primary/60 hover:bg-neutral-900",
-                isResetting && "pointer-events-none opacity-50"
+                "group flex h-48 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-[#4A6B85]/40 bg-[#F3F2F2] text-center transition hover:border-[#4A6B85]/70 hover:bg-white",
+                (!emailSubmitted || afterUpload.isUploading) && "pointer-events-none opacity-60"
               )}
             >
               <Input
@@ -280,119 +311,56 @@ export function BeforeAfterVideoTool() {
                 accept={ACCEPTED_TYPES.join(",")}
                 className="hidden"
                 onChange={(event) => handleFileSelect(event.target.files, "after")}
-                disabled={isResetting}
+                disabled={!emailSubmitted || afterUpload.isUploading}
               />
-              <Upload className="mb-3 h-8 w-8 text-primary" />
+              {afterUpload.isUploading ? (
+                <Loader2 className="mb-3 h-8 w-8 animate-spin text-[#4A6B85]" />
+              ) : (
+                <Upload className="mb-3 h-8 w-8 text-[#4A6B85]" />
+              )}
               <div className="text-sm font-semibold uppercase tracking-wide">After Photo</div>
-              <p className="mt-2 text-xs text-white/70">JPEG, PNG, or WebP up to 15MB</p>
+              <p className="mt-2 text-xs text-neutral-600">JPEG, PNG, or WebP up to 15MB</p>
               {afterFile && (
-                <p className="mt-3 text-xs text-white/60">{afterFile.name}</p>
+                <p className="mt-3 text-xs text-neutral-500">{afterFile.name}</p>
               )}
             </label>
           </div>
 
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="ghost"
+              onClick={resetTool}
+              disabled={beforeUpload.isUploading || afterUpload.isUploading || (!beforeFile && !afterFile)}
+              className="text-[#4A6B85] hover:bg-[#4A6B85]/10"
+            >
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              Reset
+            </Button>
+            <Button
+              onClick={requestVideo}
+              disabled={!canRequestVideo || isRequestingVideo}
+              className="bg-[#4A6B85] text-white hover:bg-[#3d5a70]"
+            >
+              {isRequestingVideo ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending to video worker...
+                </>
+              ) : jobAccepted ? (
+                "We&apos;ll email you soon"
+              ) : (
+                "Email me the video"
+              )}
+            </Button>
+          </div>
+
           {error && (
-            <p className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </p>
           )}
-
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="text-sm text-white/70">
-              {humanUsageStatus ? (
-                <span>
-                  You&apos;ve generated {humanUsageStatus.used} of {humanUsageStatus.limit} free videos today. Reset in {humanUsageStatus.windowText}.
-                </span>
-              ) : (
-                <span>Free plan: up to 3 videos per IP every 24 hours.</span>
-              )}
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="ghost"
-                onClick={resetInputs}
-                disabled={status === "processing" || isResetting || (!beforeFile && !afterFile)}
-              >
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                Reset
-              </Button>
-              <Button
-                onClick={generateVideo}
-                disabled={status === "uploading" || status === "processing" || !beforeFile || !afterFile}
-              >
-                {status === "uploading" || status === "processing" ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {status === "uploading" ? "Uploading" : "Rendering"}
-                  </>
-                ) : (
-                  <>Generate Slider Video</>
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {progress > 0 && status !== "idle" && (
-            <div className="space-y-2">
-              <Progress value={progress} className="h-3 bg-white/10" />
-              <p className="text-xs uppercase tracking-wide text-white/60">
-                {status === "uploading" && "Uploading images to Cloudflare"}
-                {status === "processing" && "Rendering video with FFmpeg"}
-                {status === "completed" && "Video ready"}
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
-
-      {showSlider && (
-        <Card className="border-white/10 bg-neutral-950 text-white shadow-xl">
-          <CardHeader>
-            <CardTitle className="text-2xl">Interactive preview</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BasicImageComparisonSlider
-              beforeImage={beforePreview!}
-              afterImage={afterPreview!}
-              beforeLabel="Before"
-              afterLabel="After"
-              className="mx-auto max-w-3xl"
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {videoUrl && (
-        <Card className="border-primary/30 bg-neutral-950 text-white shadow-2xl">
-          <CardHeader>
-            <CardTitle className="text-2xl">Download your before & after slider video</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <video
-              className="w-full rounded-2xl border border-white/10"
-              controls
-              playsInline
-              preload="metadata"
-            >
-              <source src={videoUrl} type="video/mp4" />
-              Your browser does not support the video tag.
-            </video>
-
-            <Button asChild className="w-full md:w-auto">
-              <a href={videoUrl} download>
-                <Download className="mr-2 h-4 w-4" />
-                Download MP4
-              </a>
-            </Button>
-
-            {videoUrl && (
-              <p className="text-xs text-white/60">
-                This link expires in {videoExpiryText}. Save the MP4 locally to keep it forever.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
     </section>
   );
 }
