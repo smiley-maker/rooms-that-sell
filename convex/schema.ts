@@ -195,5 +195,26 @@ export default defineSchema({
     windowStartedAt: v.number(),
     lastUsedAt: v.number(),
   }).index("by_tool_ip", ["toolSlug", "ipHash"]),
-});
 
+  beforeAfterVideoSessions: defineTable({
+    sessionToken: v.string(),
+    email: v.optional(v.string()),
+    beforeKey: v.optional(v.string()),
+    afterKey: v.optional(v.string()),
+    beforePreviewUrl: v.optional(v.string()),
+    afterPreviewUrl: v.optional(v.string()),
+    generationsUsed: v.number(),
+    dailyGenerationLimit: v.number(),
+    windowStartedAt: v.number(),
+    lastGenerationAt: v.optional(v.number()),
+    videoKey: v.optional(v.string()),
+    videoUrl: v.optional(v.string()),
+    workerMessage: v.optional(v.string()),
+    status: v.string(),
+    lastKnownIpHash: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_sessionToken", ["sessionToken"])
+    .index("by_email", ["email"]),
+});

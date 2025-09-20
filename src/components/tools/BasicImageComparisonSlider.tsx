@@ -3,7 +3,6 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface BasicImageComparisonSliderProps {
@@ -78,38 +77,29 @@ export function BasicImageComparisonSlider({
     };
   }, []);
 
-  const shouldUseNativeImage = (src: string) => src.startsWith("blob:") || src.startsWith("data:");
+  const renderImage = useCallback((src: string, alt: string) => {
+    if (!src) return null;
 
-  const renderImage = (src: string, alt: string) => {
-    if (shouldUseNativeImage(src)) {
-      return (
-        <img
-          src={src}
-          alt={alt}
-          className="absolute inset-0 h-full w-full select-none object-cover pointer-events-none"
-          draggable={false}
-        />
-      );
-    }
-
+    // Prefer native <img> to gracefully support blob/data URLs without Next config.
     return (
-      <Image
+      <img
         key={src}
         src={src}
         alt={alt}
-        fill
-        unoptimized
-        sizes="(min-width: 768px) 60vw, 100vw"
-        className="pointer-events-none select-none object-cover"
+        className="absolute inset-0 h-full w-full select-none object-cover"
+        draggable={false}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
       />
     );
-  };
+  }, []);
 
   return (
-    <div className={cn("w-full", className)}>
+    <div className={cn("relative w-full", className)}>
       <div
         ref={containerRef}
-        className="relative aspect-video w-full overflow-hidden rounded-2xl border border-black/10 bg-white select-none shadow-lg"
+        className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10 bg-transparent select-none shadow-lg cursor-col-resize"
         onMouseDown={(event) => {
           setIsDragging(true);
           updatePosition(event.clientX);
@@ -140,7 +130,10 @@ export function BasicImageComparisonSlider({
       >
         <div className="absolute inset-0">
           <div className="relative h-full w-full">
-            {renderImage(afterImage, afterLabel)}
+            {renderImage(beforeImage, beforeLabel)}
+            <div className="pointer-events-none absolute left-4 top-4 rounded-full bg-black/60 px-3 py-1 text-sm font-medium text-white">
+              {beforeLabel}
+            </div>
           </div>
         </div>
         <div
@@ -148,24 +141,21 @@ export function BasicImageComparisonSlider({
           style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
         >
           <div className="relative h-full w-full">
-            {renderImage(beforeImage, beforeLabel)}
+            {renderImage(afterImage, afterLabel)}
+            <div className="pointer-events-none absolute right-4 top-4 rounded-full bg-green-600 px-3 py-1 text-sm font-medium text-white">
+              {afterLabel}
+            </div>
           </div>
         </div>
 
-        <div className="pointer-events-none absolute inset-x-0 top-4 flex justify-between px-6 text-sm font-semibold uppercase tracking-[0.2em] text-white drop-shadow">
-          <span className="rounded-full bg-[#4A6B85]/90 px-3 py-1 backdrop-blur">{beforeLabel}</span>
-          <span className="rounded-full bg-[#4A6B85]/90 px-3 py-1 backdrop-blur">{afterLabel}</span>
-        </div>
-
         <div
-          className="absolute inset-y-0 w-0.5 bg-white shadow-xl"
+          className="pointer-events-none absolute inset-y-0 z-10 w-0.5 bg-white shadow-lg"
           style={{ left: `${position}%` }}
         >
-          <div className="absolute left-1/2 top-1/2 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/10 bg-white text-neutral-900 shadow-lg">
-            <div className="flex items-center gap-1 text-xs font-semibold uppercase">
-              <span>⇤</span>
-              <span>⇥</span>
-            </div>
+          <div
+            className="absolute left-1/2 top-1/2 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-neutral-900 shadow-lg pointer-events-auto"
+          >
+            <div className="h-6 w-1 rounded-full bg-gray-400" />
           </div>
         </div>
       </div>
@@ -190,13 +180,13 @@ export function BasicImageComparisonSlider({
             setIsMobileSliderActive(false);
             setLastInteractionTime(Date.now());
           }}
-          className="h-2 w-full cursor-pointer appearance-none rounded-full bg-[#d4d9de]"
+          className="h-2 w-full cursor-pointer appearance-none rounded-full bg-gray-200"
           style={{
-            background: `linear-gradient(to right, #4A6B85 0%, #4A6B85 ${position}%, #d4d9de ${position}%, #d4d9de 100%)`,
+            background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${position}%, #e5e7eb ${position}%, #e5e7eb 100%)`,
           }}
           aria-label="Compare before and after"
         />
-        <div className="mt-1 flex justify-between text-xs uppercase tracking-wide text-neutral-600">
+        <div className="mt-1 flex justify-between text-xs text-neutral-600">
           <span>{beforeLabel}</span>
           <span>{afterLabel}</span>
         </div>
