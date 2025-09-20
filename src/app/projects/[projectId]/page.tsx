@@ -2,10 +2,10 @@
 
 import { useParams } from "next/navigation";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { Image } from "@/types/convex";
+import { Image, ProjectVideo } from "@/types/convex";
 import { ImageDisplay } from "@/components/ImageDisplay";
 import { ImageComparisonSlider } from "@/components/ImageComparisonSlider";
 import { ImageUploader } from "@/components/ImageUploader";
@@ -24,11 +24,13 @@ import {
   CheckCircle2,
   Info
 } from "lucide-react";
+import { toast } from "sonner";
 import { AuthenticatedNavbar } from "@/components";
 import { LeftRail } from "@/components/workspace/LeftRail";
 import { CanvasToolbar } from "@/components/workspace/CanvasToolbar";
 import { FullscreenView } from "@/components/workspace/FullscreenView";
 import { VersionsGalleryModal } from "@/components/workspace/VersionsGalleryModal";
+import { Button } from "@/components/ui/button";
 
 
 export default function ProjectDetailPage() {
@@ -56,6 +58,8 @@ export default function ProjectDetailPage() {
   const [showVersionsModal, setShowVersionsModal] = useState(false);
   const [isRightPanelVisible, setIsRightPanelVisible] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isVideoProcessing, setIsVideoProcessing] = useState(false);
+  const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
   
   // Version tracking state
   const [localCurrentVersionId, setLocalCurrentVersionId] = useState<Id<"imageVersions"> | undefined>(undefined);
@@ -109,6 +113,7 @@ export default function ProjectDetailPage() {
   const createStagingJob = useMutation(api.stagingJobs.createStagingJob);
   const approveImage = useMutation(api.images.approveImage);
   const updateRoomTypeMutation = useMutation(api.images.updateImageRoomType);
+  const startVideoGeneration = useAction(api.beforeAfterVideos.startVideoGeneration);
 
   // Set default active image if none selected
   useEffect(() => {
@@ -185,6 +190,38 @@ export default function ProjectDetailPage() {
       }
     }
   }, [activeImageId, images]);
+ 
+  const activeImage = images?.find(img => img._id === activeImageId);
+  const isOriginalImage = !isBatchMode && activeImage?.status === "uploaded";
+
+  const activeVersionId = localCurrentVersionId ?? activeImage?.currentVersionId;
+  const activeVideo = useQuery(
+    api.projectVideos.getVideoForImage,
+    activeImageId
+      ? activeVersionId
+        ? { imageId: activeImageId, versionId: activeVersionId }
+        : { imageId: activeImageId }
+      : "skip"
+  );
+  const hasActiveVideo = Boolean(activeVideo && activeVideo.status === "completed" && activeVideo.videoUrl);
+  const canGenerateVideo = Boolean(activeImage && activeImage.status !== "uploaded" && (activeImage.stagedKey || activeImage.stagedUrl));
+
+
+  useEffect(() => {
+    if (!activeVideo) {
+      setIsVideoProcessing(false);
+      return;
+    }
+    if (activeVideo.status === "processing") {
+      setIsVideoProcessing(true);
+    } else {
+      setIsVideoProcessing(false);
+    }
+  }, [activeVideo]);
+
+  useEffect(() => {
+    setIsVideoDialogOpen(false);
+  }, [activeImageId]);
 
   // Handle responsive right panel
   useEffect(() => {
@@ -199,9 +236,6 @@ export default function ProjectDetailPage() {
     handleResize(); // Set initial state
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-
-  const activeImage = images?.find(img => img._id === activeImageId);
-  const isOriginalImage = !isBatchMode && activeImage?.status === "uploaded";
 
   // Organize images by status
   const organizedImages = {
@@ -224,6 +258,43 @@ export default function ProjectDetailPage() {
       </div>
     );
   }
+
+  const handleGenerateVideo = async () => {
+    if (!activeImage || !project) return;
+    if (!canGenerateVideo) {
+      toast.error("Generate a staged version before creating a video.");
+      return;
+    }
+    if (!activeImage.imageKey && !activeImage.originalUrl) {
+      toast.error("Original image data is missing.");
+      return;
+    }
+    if (!activeImage.stagedKey && !activeImage.stagedUrl) {
+      toast.error("No staged image found for this photo.");
+      return;
+    }
+    try {
+      setIsVideoProcessing(true);
+      await startVideoGeneration({
+        tier: "project",
+        projectId,
+        imageId: activeImage._id,
+        versionId: localCurrentVersionId ?? activeImage.currentVersionId ?? undefined,
+      });
+      toast.success("Video render started.");
+    } catch (error) {
+      console.error("Failed to start video generation", error);
+      setIsVideoProcessing(false);
+      const message = error instanceof Error ? error.message : null;
+      toast.error(message && message.trim().length > 0 ? message : "We couldn't start the video render. Please try again.");
+    }
+  };
+
+  const handleDownloadVideo = () => {
+    if (activeVideo?.videoUrl) {
+      window.open(activeVideo.videoUrl, "_blank", "noopener");
+    }
+  };
 
   // Handle regenerate staging
   const handleRegenerate = async () => {
@@ -359,6 +430,11 @@ export default function ProjectDetailPage() {
             onShowDownloadDialog={() => setShowDownloadDialog(true)}
             onVersionChange={handleVersionChange}
             onSeeAllVersions={() => setShowVersionsModal(true)}
+            onGenerateVideo={handleGenerateVideo}
+            canGenerateVideo={canGenerateVideo}
+            hasVideo={hasActiveVideo}
+            isVideoProcessing={isVideoProcessing}
+            onViewVideo={hasActiveVideo ? () => setIsVideoDialogOpen(true) : undefined}
           />
 
           {/* Image Canvas */}
@@ -420,6 +496,8 @@ export default function ProjectDetailPage() {
                     const aspectRatio = activeImage.dimensions.width && activeImage.dimensions.height
                       ? `${activeImage.dimensions.width} / ${activeImage.dimensions.height}`
                       : "16 / 9";
+                    const hasCompletedVideo = Boolean(activeVideo && activeVideo.status === "completed" && activeVideo.videoUrl);
+                    const videoFailed = activeVideo?.status === "failed";
 
                     return (
                       <div style={{ aspectRatio }} className="h-auto max-h-full w-full">
@@ -444,6 +522,53 @@ export default function ProjectDetailPage() {
                             <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent"></div>
                           </div>
                         )}
+                        <div className="mt-4 space-y-3">
+                          {isVideoProcessing && !hasCompletedVideo ? (
+                            <div className="rounded-xl border border-indigo-100 bg-white px-4 py-3 text-sm text-indigo-700">
+                              Rendering video… You can continue editing while we finish this up.
+                            </div>
+                          ) : null}
+
+                          {videoFailed ? (
+                            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                              We couldn&apos;t render the last video. Try again or reach out if the issue persists.
+                            </div>
+                          ) : null}
+
+                          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-semibold text-gray-800">Video preview</p>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleGenerateVideo}
+                                  disabled={!canGenerateVideo || isVideoProcessing}
+                                >
+                                  {isVideoProcessing ? "Processing…" : "Generate"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="bg-indigo-600 text-white hover:bg-indigo-500"
+                                  onClick={() => setIsVideoDialogOpen(true)}
+                                  disabled={!hasCompletedVideo || !activeVideo?.videoUrl}
+                                >
+                                  View
+                                </Button>
+                              </div>
+                            </div>
+                            {hasCompletedVideo && activeVideo?.videoUrl ? (
+                              <div className="mt-3 space-y-2">
+                                <div className="rounded-lg bg-black/90 p-1">
+                                  <video src={activeVideo.videoUrl} className="w-full rounded-md" controls />
+                                </div>
+                                <p className="text-xs text-gray-500">Updated {new Date(activeVideo.updatedAt).toLocaleString()}</p>
+                              </div>
+                            ) : !isVideoProcessing ? (
+                              <p className="mt-2 text-xs text-gray-500">Generate a video to bring this before &amp; after to life.</p>
+                            ) : null}
+                          </div>
+                        </div>
                       </div>
                     );
                   })()}
@@ -636,6 +761,10 @@ export default function ProjectDetailPage() {
         onToggleRightPanel={() => setIsRightPanelVisible(!isRightPanelVisible)}
         onApprove={handleApprove}
         onShowDownloadDialog={() => setShowDownloadDialog(true)}
+        activeVideo={activeVideo ?? null}
+        isVideoProcessing={isVideoProcessing}
+        onGenerateVideo={handleGenerateVideo}
+        onDownloadVideo={handleDownloadVideo}
       />
 
       {/* Upload Dialog */}
@@ -661,6 +790,36 @@ export default function ProjectDetailPage() {
         projectId={projectId}
         selectedImages={hasSelection ? selectedImageIds : activeImageId ? [activeImageId] : []}
       />
+
+      <Dialog open={isVideoDialogOpen} onOpenChange={setIsVideoDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Latest slider video</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {hasActiveVideo && activeVideo?.videoUrl ? (
+              <video src={activeVideo.videoUrl} controls className="w-full rounded-xl bg-black" />
+            ) : (
+              <p className="text-sm text-gray-600">No video yet. Generate one from the toolbar.</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsVideoDialogOpen(false)}
+              >
+                Close
+              </Button>
+              <Button
+                onClick={handleDownloadVideo}
+                disabled={!hasActiveVideo || !activeVideo?.videoUrl}
+                className="bg-indigo-600 text-white hover:bg-indigo-500"
+              >
+                Download MP4
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Versions Modal */}
       {activeImageId && (

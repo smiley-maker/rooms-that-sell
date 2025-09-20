@@ -29,6 +29,7 @@ import type * as lib_stripeInternal from "../lib/stripeInternal.js";
 import type * as lib_stripeService from "../lib/stripeService.js";
 import type * as lib_subscriptionService from "../lib/subscriptionService.js";
 import type * as mlsCompliance from "../mlsCompliance.js";
+import type * as projectVideos from "../projectVideos.js";
 import type * as projects from "../projects.js";
 import type * as stagingJobs from "../stagingJobs.js";
 import type * as stripe from "../stripe.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   "lib/stripeService": typeof lib_stripeService;
   "lib/subscriptionService": typeof lib_subscriptionService;
   mlsCompliance: typeof mlsCompliance;
+  projectVideos: typeof projectVideos;
   projects: typeof projects;
   stagingJobs: typeof stagingJobs;
   stripe: typeof stripe;

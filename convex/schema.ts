@@ -188,6 +188,23 @@ export default defineSchema({
     .index("by_projectId", ["projectId"])
     .index("by_status", ["status"]),
 
+
+  projectVideos: defineTable({
+    projectId: v.id("projects"),
+    userId: v.id("users"),
+    imageId: v.id("images"),
+    versionId: v.optional(v.id("imageVersions")),
+    videoKey: v.optional(v.string()),
+    videoUrl: v.optional(v.string()),
+    status: v.string(),
+    message: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_image", ["imageId"])
+    .index("by_project", ["projectId"])
+    .index("by_image_version", ["imageId", "versionId"]),
+
   toolUsage: defineTable({
     toolSlug: v.string(),
     ipHash: v.string(),

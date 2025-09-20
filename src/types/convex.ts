@@ -65,6 +65,21 @@ export interface ImageVersion {
   createdAt: number;
 }
 
+export interface ProjectVideo {
+  _id: Id<"projectVideos">;
+  projectId: Id<"projects">;
+  userId: Id<"users">;
+  imageId: Id<"images">;
+  versionId: Id<"imageVersions"> | null;
+  videoKey: string | null;
+  videoUrl: string | null;
+  status: string;
+  message: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+
 // Project types
 export interface Project {
   _id: Id<"projects">;

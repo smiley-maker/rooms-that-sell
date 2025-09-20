@@ -9,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Expand, Sparkles, Check, Download, Shrink, Heart } from "lucide-react";
+import { Expand, Sparkles, Check, Download, Shrink, Heart, Video, Clapperboard, Loader2 } from "lucide-react";
 import { Id } from "../../../convex/_generated/dataModel";
 import { VersionsDropdown } from "./VersionsDropdown";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,11 @@ type CanvasToolbarProps = {
   onShowDownloadDialog: () => void;
   onVersionChange?: (versionId: Id<"imageVersions">) => void;
   onSeeAllVersions?: () => void;
+  onGenerateVideo?: () => void;
+  onViewVideo?: () => void;
+  canGenerateVideo?: boolean;
+  hasVideo?: boolean;
+  isVideoProcessing?: boolean;
 };
 
 export function CanvasToolbar({
@@ -49,6 +54,11 @@ export function CanvasToolbar({
   onShowDownloadDialog,
   onVersionChange,
   onSeeAllVersions,
+  onGenerateVideo,
+  onViewVideo,
+  canGenerateVideo = true,
+  hasVideo = false,
+  isVideoProcessing = false,
 }: CanvasToolbarProps) {
   const [isPinning, setIsPinning] = useState(false);
 
@@ -167,6 +177,50 @@ export function CanvasToolbar({
                 </button>
               </TooltipTrigger>
               <TooltipContent>Show Staging Controls</TooltipContent>
+            </Tooltip>
+          )}
+          {onGenerateVideo && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className={cn(
+                    "p-2 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+                    isVideoProcessing
+                      ? "text-indigo-600"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  )}
+                  onClick={onGenerateVideo}
+                  disabled={
+                    !canGenerateVideo ||
+                    isVideoProcessing ||
+                    isMultiSelect ||
+                    !activeImageId
+                  }
+                >
+                  {isVideoProcessing ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Clapperboard className="w-5 h-5" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isVideoProcessing ? "Video rendering in progress" : "Generate slider video"}
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {hasVideo && onViewVideo && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                  onClick={onViewVideo}
+                  disabled={isVideoProcessing}
+                >
+                  <Video className="w-5 h-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>View latest video</TooltipContent>
             </Tooltip>
           )}
           <Tooltip>
